@@ -88,24 +88,32 @@ in parallel tests are not:
     (thunk)))
 ```
 
+## Run tests from the REPL
+
+Run tests from the REPL the same way the CLI will run them:
+
+```clj
+(hawk.core/hawk.core/find-and-run-tests-repl {:only ['my.namespace-test]})
+```
+
 ## Test modes:
 
 The Hawk test runner can run in one of three modes.
 
 * `:repl`      -- running locally in a REPL
 * `:cli/ci`    -- running in a CI environment like CircleCI or GitHub actions with `clojure` or `clj`
-* `:cli/local` -- running *locally* with `clojure` or `clj`
+* `:cli/local` -- running locally with `clojure` or `clj`
 
 Which mode determines different behaviors, e.g. when running from a `:repl` we should not call `System/exit` when
-tests fail; when running from `:cli/local` we should print use the pretty progress-bar reporter, etc.
+tests fail; when running from `:cli/local` we should use the pretty progress-bar reporter to print test output, etc.
 
 You can specify the mode with env var `HAWK_MODE` or Java system property `hawk.mode`, or pass in `:mode` to the
 options map in `deps.edn`. If the env var `CI` or system property `ci` is set, `:cli/ci` will be assumed, but
 `HAWK_MODE` will be used preferentially.
 
 If you use the `hawk.core/find-and-run-tests-cli` `:exec-fn`, `:cli/local` will be assumed if not otherwise specified
-(e.g. if `CI` and `HAWK_MODE` are unset). When running tests from a REPL, use `hawk.core/find-and-run-tests-repl`
-instead.
+(i.e. if `CI` and `HAWK_MODE` are unset, and you don't specify it in the options map). When running tests from a REPL,
+use `hawk.core/find-and-run-tests-repl` instead.
 
 ## Additional `is` assertion types
 
