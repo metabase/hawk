@@ -72,7 +72,8 @@ Hawk automatically generates JUnit output using bespoke JUnit output code that p
 ## Parallel Tests
 
 Unlike Eftest, parallelization in Hawk tests is opt-in. This is mostly a byproduct of it beginning life as the
-Metabase test runner. All tests are ran synchronously unless they are given `^:parallel` metadata.
+Metabase test runner. All tests are ran synchronously unless they are given `^:parallel` metadata (either the test
+itself, or the namespace).
 
 Hawk includes `hawk.parallel/assert-test-is-not-parallel`, which you can use to make sure things that shouldn't be ran
 in parallel tests are not:
@@ -89,7 +90,7 @@ in parallel tests are not:
 
 ## Test modes:
 
-The Hawk test runner can one in one of three modes.
+The Hawk test runner can run in one of three modes.
 
 * `:repl`      -- running locally in a REPL
 * `:cli/ci`    -- running in a CI environment like CircleCI or GitHub actions with `clojure` or `clj`
