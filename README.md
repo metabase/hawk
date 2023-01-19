@@ -106,14 +106,11 @@ Run tests from the REPL the same way the CLI will run them:
 
 The Hawk test runner can run in one of three modes.
 
-* `:repl`, when running locally in a REPL. When the test suite fails, print a summary and do nothing else. Do not
-   print a progress bar when running tests.
-
-* `:cli/ci`, when running in a CI environment like CircleCI or GitHub actions with `clojure` or `clj`. When the test
-  suite fails, call `System/exit` with a nonzero status code. Print a progress bar while running tests.
-
-* `:cli/local`, when running locally with `clojure` or `clj`. When the test suite fails, call `System/exit` with a
-  nonzero status code. Do not print a progress bar when running tests.
+| Model | Test Suite Failure Behavior | Show Progress Bar? |
+|--|--|--|
+| `:repl` | Print summary | No |
+| `:cli/local` | call `(System/exit -1)` | Yes |
+| `:cli/ci` | call `(System/exit -1)` | No |
 
 The mode is determined as follows:
 
