@@ -1,0 +1,14 @@
+{:config-paths
+ ["../resources/clj-kondo.exports/com.github.metabase/hawk"]
+
+ :linters
+ {:docstring-leading-trailing-whitespace {:level :warning}
+  :missing-docstring                     {:level :warning}
+  :unsorted-required-namespaces          {:level :warning}
+
+  :refer-all
+  {:level   :warning
+   :exclude [clojure.test]}}
+
+ :config-in-comment
+ {:linters {:unresolved-symbol {:level :off}}}}
