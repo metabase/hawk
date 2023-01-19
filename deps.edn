@@ -18,9 +18,8 @@
 
   ;; clj -X:dev:test
   :test
-  {:exec-fn             hawk.core/find-and-run-tests-cli
-   :exclude-directories ["src"
-                         "resources"]}
+  {:exec-fn   hawk.core/find-and-run-tests-cli
+   :exec-args {:exclude-directories ["src" "resources"]}}
 
   :ci
   {:jvm-opts ["-Dhawk.mode" "cli/ci"]}}}
