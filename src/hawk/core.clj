@@ -3,6 +3,7 @@
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
    [clojure.pprint :as pprint]
+   [clojure.string :as str]
    [clojure.test :as t]
    [clojure.tools.namespace.find :as ns.find]
    [eftest.report.pretty]
@@ -15,6 +16,8 @@
    [hawk.parallel :as test-runner.parallel]
    [hawk.util :as u]))
 
+(set! *warn-on-reflection* true)
+
 (comment hawk.assert-exprs/keep-me)
 
 ;;;; Finding tests
@@ -22,43 +25,39 @@
 (defmulti find-tests
   "Find test vars in `arg`, which can be a string directory name, symbol naming a specific namespace or test, or a
   collection of one or more of the above."
-  {:arglists '([arg])}
-  type)
+  {:arglists '([arg options])}
+  (fn [arg _options]
+    (type arg)))
 
 ;; collection of one of the things below
 (defmethod find-tests clojure.lang.Sequential
-  [coll]
-  (mapcat find-tests coll))
+  [coll options]
+  (mapcat #(find-tests % options) coll))
 
 ;; directory name
 (defmethod find-tests String
-  [dir-name]
-  (find-tests (io/file dir-name)))
-
-;; TODO FIXME -- this needs to be an option since this is a little Metabase-specific!
-(def ^:private excluded-directories
-  "When searching the classpath for tests (i.e., if no `:only` options were passed), don't look for tests in any
-  directories with these name (as the last path component)."
-  #{"src"
-    "test_config"
-    "resources"
-    "test_resources"
-    "resources-ee"
-    "classes"})
+  [dir-name options]
+  (find-tests (io/file dir-name) options))
 
 ;; directory
 (defmethod find-tests java.io.File
-  [^java.io.File file]
+  [^java.io.File file {:keys [exclude-directories], :as options}]
   (when (and (.isDirectory file)
-             (not (some (partial = (.getName file)) excluded-directories)))
+             (if (some (fn [directory]
+                         (str/starts-with? (str file) directory))
+                       exclude-directories)
+               (do
+                 (println "Excluding directory" (pr-str (str file)))
+                 false)
+               true))
     (println "Looking for test namespaces in directory" (str file))
     (->> (ns.find/find-namespaces-in-dir file)
          (filter #(re-matches  #"^hawk.*test$" (name %)))
-         (mapcat find-tests))))
+         (mapcat #(find-tests % options)))))
 
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol
-  [symb]
+  [symb _options]
   (letfn [(load-test-namespace [ns-symb]
             (binding [test-runner.init/*test-namespace-being-loaded* ns-symb]
               (require ns-symb)))]
@@ -75,8 +74,8 @@
 
 ;; default -- look in all dirs on the classpath
 (defmethod find-tests nil
-  [_]
-  (find-tests (classpath/system-classpath)))
+  [_nil options]
+  (find-tests (classpath/system-classpath) options))
 
 (defn find-tests-with-options
   "Find tests using the options map as passed to `clojure -X`."
@@ -85,7 +84,7 @@
   (when only
     (println "Running tests in" (pr-str only)))
   (let [start-time-ms (System/currentTimeMillis)
-        tests         (find-tests only)]
+        tests         (find-tests only options)]
     (printf "Finding tests took %s.\n" (u/format-milliseconds (- (System/currentTimeMillis) start-time-ms)))
     (println "Running" (count tests) "tests")
     tests))
@@ -135,10 +134,10 @@
   To run tests from the REPL, use this function.
 
     ;; run tests in a single namespace
-    (run (find-tests 'metabase.bad-test))
+    (run (find-tests 'metabase.bad-test nil))
 
     ;; run tests in a directory
-    (run (find-tests \"test/hawk/query_processor_test\"))"
+    (run (find-tests \"test/hawk/query_processor_test\" nil))"
   ([test-vars]
    (run-tests test-vars nil))
 

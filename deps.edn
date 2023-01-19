@@ -18,13 +18,9 @@
 
   ;; clj -X:dev:test
   :test
-  {:exec-fn  hawk.core/find-and-run-tests-cli}
+  {:exec-fn             hawk.core/find-and-run-tests-cli
+   :exclude-directories ["src"
+                         "resources"]}
 
   :ci
   {:jvm-opts ["-Dhawk.mode" "cli/ci"]}}}
-
-{:aliases
- {:test
-  {:extra-paths ["test"]
-   :extra-deps  {io.github.metabase/hawk {:sha "ca1775da999ed066947bd37ca5710167f4adecaa"}}
-   :exec-fn     hawk.core/find-and-run-tests-cli}}}

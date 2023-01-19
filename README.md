@@ -125,6 +125,18 @@ The mode is determined as follows:
 
 5. If you run tests from the REPL with `hawk.core/find-and-run-tests-repl`, `:repl` will be used.
 
+## Excluding directories
+
+`:exclude-directories` passed in the options map will tell Hawk not to look for tests in those directories. This only
+works for top-level directories!
+
+```clj
+{:aliases
+ {:test
+  {:exec-fn             hawk.core/find-and-run-tests-cli
+   :exclude-directories ["src" "resources"]}}}
+```
+
 ## Additional options
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation
