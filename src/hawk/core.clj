@@ -1,21 +1,4 @@
 (ns hawk.core
-  "Simple wrapper to let us use eftest with the Clojure CLI. Pass `:only` to specify where to look for tests (see dox
-  for [[find-tests]] for more info.)
-
-  ### Test modes:
-
-  The Hawk test runner can one in one of three modes.
-
-  * `:repl`      -- running locally in a REPL
-  * `:cli/ci`    -- running in a CI environment like CircleCI or GitHub actions with `clojure` or `clj`
-  * `:cli/local` -- running *locally* with `clojure` or `clj`
-
-  Which mode determines different behaviors, e.g. when running from a `:repl` we should not call `System/exit` when
-  tests fail; when running from `:cli/local` we should print use the pretty progress-bar reporter, etc.
-
-  You can specify the mode with env var `HAWK_MODE` or Java system property `hawk.mode`, or pass in `:mode` to the
-  options map. If the env var `CI` or system property `ci` is set, `:cli/ci` will be assumed, but `HAWK_MODE` will be
-  used preferentially."
   (:require
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
@@ -52,6 +35,7 @@
   [dir-name]
   (find-tests (io/file dir-name)))
 
+;; TODO FIXME -- this needs to be an option since this is a little Metabase-specific!
 (def ^:private excluded-directories
   "When searching the classpath for tests (i.e., if no `:only` options were passed), don't look for tests in any
   directories with these name (as the last path component)."
