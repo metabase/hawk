@@ -39,22 +39,27 @@
   [dir-name options]
   (find-tests (io/file dir-name) options))
 
+(defn- exclude-directory? [dir exclude-directories]
+  (when (some (fn [directory]
+                (str/starts-with? (str dir) directory))
+              exclude-directories)
+    (println "Excluding directory" (pr-str (str dir)))
+    true))
+
+(defn- include-namespace? [ns-symbol namespace-pattern]
+  (if namespace-pattern
+    (re-matches (re-pattern namespace-pattern) (name ns-symbol))
+    true))
+
 ;; directory
 (defmethod find-tests java.io.File
   [^java.io.File file {:keys [namespace-pattern exclude-directories], :as options}]
   (when (and (.isDirectory file)
-             (if (some (fn [directory]
-                         (str/starts-with? (str file) directory))
-                       exclude-directories)
-               (do
-                 (println "Excluding directory" (pr-str (str file)))
-                 false)
-               true))
+             (not (str/includes? (str file) ".gitlibs/libs"))
+             (not (exclude-directory? file exclude-directories)))
     (println "Looking for test namespaces in directory" (str file))
     (->> (ns.find/find-namespaces-in-dir file)
-         (filter (if namespace-pattern
-                   #(re-matches (re-pattern namespace-pattern) (name %))
-                   (constantly true)))
+         (filter #(include-namespace? % namespace-pattern))
          (mapcat #(find-tests % options)))))
 
 ;; a test namespace or individual test
