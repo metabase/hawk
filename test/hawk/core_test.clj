@@ -19,7 +19,10 @@
       (is (contains? (set tests) (resolve 'hawk.core-test/find-tests-test)))
       (is (contains? (set tests) (resolve 'hawk.assert-exprs-test/partial=-test))))
     (testing "Exclude directories"
-      (is (empty? (hawk/find-tests nil {:exclude-directories ["src" "test"]})))))
+      (is (empty? (hawk/find-tests nil {:exclude-directories ["src" "test"]}))))
+    (testing "Namespace pattern"
+      (is (some? (hawk/find-tests nil {:namespace-pattern "^hawk\\.core-test$"})))
+      (is (empty? (hawk/find-tests nil {:namespace-pattern "^hawk\\.corn-test$"})))))
   (testing "everything"
     (let [tests (hawk/find-tests nil nil)]
       (is (seq tests))

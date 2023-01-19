@@ -41,7 +41,7 @@
 
 ;; directory
 (defmethod find-tests java.io.File
-  [^java.io.File file {:keys [exclude-directories], :as options}]
+  [^java.io.File file {:keys [namespace-pattern exclude-directories], :as options}]
   (when (and (.isDirectory file)
              (if (some (fn [directory]
                          (str/starts-with? (str file) directory))
@@ -52,7 +52,9 @@
                true))
     (println "Looking for test namespaces in directory" (str file))
     (->> (ns.find/find-namespaces-in-dir file)
-         (filter #(re-matches  #"^hawk.*test$" (name %)))
+         (filter (if namespace-pattern
+                   #(re-matches (re-pattern namespace-pattern) (name %))
+                   (constantly true)))
          (mapcat #(find-tests % options)))))
 
 ;; a test namespace or individual test

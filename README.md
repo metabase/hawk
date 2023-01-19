@@ -125,6 +125,18 @@ The mode is determined as follows:
 
 5. If you run tests from the REPL with `hawk.core/find-and-run-tests-repl`, `:repl` will be used.
 
+## Matching Namespace Patterns
+
+Tell the test runner to only run tests against certain namespaces with `:namespace-pattern`:
+
+```clj
+;; only run tests against namespaces that start with `my-project` and end with `test`
+{:aliases
+ {:test
+  {:exec-fn            hawk.core/find-and-run-tests-cli
+   :namespace-pattern "^my-project.*test$"}}}
+```
+
 ## Excluding directories
 
 `:exclude-directories` passed in the options map will tell Hawk not to look for tests in those directories. This only
