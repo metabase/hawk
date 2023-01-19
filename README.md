@@ -23,6 +23,31 @@ spun it out so we can use it in other places too.
    :exec-fn     hawk.core/find-and-run-tests-cli}}}
 ```
 
+## Leiningen-style test selection
+
+You can run tests against a single namespace or directory, or one test specifically, by passing `:only [argument]`:
+
+Arguments to `clojure -X` are read in as EDN; for things other than plain symbols or numbers you usually need to wrap
+them in single quotes in your shell. Our test runner uses this argument to determine where to look for tests. Here's
+how different EDN forms are interpreted as our test runner:
+
+| Arg type | Example | Description |
+| --- | --- | --- |
+| Unqualified Symbol | `my.namespace-test` | Run all tests in this namespace |
+| Qualified Symbol | `my.namespace-test/my-test` | Run one specific test |
+| String | `'"test/metabase/api"'` | Run all tests in test namespaces in this directory (including subdirectories) |
+| Vector of symbols/strings | `'[my.namespace "test/metabase/some_directory"]'` | Union of tests found by the individual items in the vector |
+
+### Example commands:
+
+| Description | Example |
+| --- | --- |
+| Run tests in a specific namespace | `clojure -X:test :only my.namespace-test` |
+| Run a specific test | `clojure -X:test :only my.namespace-test/my-test` |
+| Run tests in a specific directory (including subdirectories) | `clojure -X:test :only '"test/metabase/api"'` |
+| Run tests in 2 namespaces | `clojure -X:test :only '[my.namespace-test my.other.namespace-test]'` |
+
+
 ## Checking to make sure things don't happen during initialization
 
 You can use `hawk.init/assert-tests-are-not-initializing` to make sure things that shouldn't be happening as a
