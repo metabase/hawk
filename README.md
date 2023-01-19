@@ -153,3 +153,7 @@ works for top-level directories!
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation
 for more information.
+
+```
+clj -X:test :fail-fast? true
+```

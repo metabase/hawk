@@ -11,9 +11,9 @@
    [eftest.runner]
    [environ.core :as env]
    [hawk.assert-exprs]
-   [hawk.init :as test-runner.init]
-   [hawk.junit :as test-runner.junit]
-   [hawk.parallel :as test-runner.parallel]
+   [hawk.init :as hawk.init]
+   [hawk.junit :as hawk.junit]
+   [hawk.parallel :as hawk.parallel]
    [hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
@@ -61,7 +61,7 @@
 (defmethod find-tests clojure.lang.Symbol
   [symb _options]
   (letfn [(load-test-namespace [ns-symb]
-            (binding [test-runner.init/*test-namespace-being-loaded* ns-symb]
+            (binding [hawk.init/*test-namespace-being-loaded* ns-symb]
               (require ns-symb)))]
     (if-let [symbol-namespace (some-> (namespace symb) symbol)]
       ;; a actual test var e.g. `metabase.whatever-test/my-test`
@@ -101,9 +101,9 @@
 (defn run-test
   "Run a single test `test-var`. Wraps/replaces [[clojure.test/test-var]]."
   [test-var]
-  (binding [test-runner.parallel/*parallel?* (test-runner.parallel/parallel? test-var)]
+  (binding [hawk.parallel/*parallel?* (hawk.parallel/parallel? test-var)]
     (some-> *parallel-test-counter* (swap! update
-                                           (if test-runner.parallel/*parallel?*
+                                           (if hawk.parallel/*parallel?*
                                              :parallel
                                              :single-threaded)
                                            (fnil inc 0)))
@@ -119,7 +119,7 @@
                           (:cli/ci :repl) eftest.report.pretty/report
                           :cli/local      eftest.report.progress/report)]
     (fn handle-event [event]
-      (test-runner.junit/handle-event! event)
+      (hawk.junit/handle-event! event)
       (stdout-reporter event))))
 
 (def ^:private env-mode
@@ -156,7 +156,7 @@
            test-vars
            (merge
             {:capture-output? false
-             :multithread?    true
+             :multithread?    :vars
              :report          (reporter options)}
             options))
           @*parallel-test-counter*))))))
