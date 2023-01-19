@@ -4,5 +4,5 @@ The Metabase meta-test-runner. You like tests, right? Then run them with our sta
 ## Custom Assertion Types
 
 * `re=`
-* `partial=`: like `=` but only compares stuff (using [[data/diff]]) that's in `expected`. Anything else is ignored.
-* `=?`: see (/docs/approximately-equals.md)
+* `partial=`: like `=` but only compares stuff (using `clojure.data/diff`) that's in `expected`. Anything else is ignored.
+* `=?`: see [Approximately Equal](/docs/approximately-equal.md)
