@@ -106,7 +106,7 @@ Run tests from the REPL the same way the CLI will run them:
 
 The Hawk test runner can run in one of three modes.
 
-| Model | Test Suite Failure Behavior | Show Progress Bar? |
+| Mode | Test Suite Failure Behavior | Show Progress Bar? |
 |--|--|--|
 | `:repl` | Print summary | No |
 | `:cli/local` | call `(System/exit -1)` | Yes |
