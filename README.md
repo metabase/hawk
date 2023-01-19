@@ -140,13 +140,14 @@ Tell the test runner to only run tests against certain namespaces with `:namespa
 ## Excluding directories
 
 `:exclude-directories` passed in the options map will tell Hawk not to look for tests in those directories. This only
-works for top-level directories!
+works for directories on your classpath, i.e. things included in `:paths`! If you need something more sophisticated,
+please submit a PR.
 
 ```clj
 {:aliases
  {:test
   {:exec-fn             hawk.core/find-and-run-tests-cli
-   :exclude-directories ["src" "resources"]}}}
+   :exclude-directories ["src" "resources" "shared/src"]}}}
 ```
 
 ## Additional options
