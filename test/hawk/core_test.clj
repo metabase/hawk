@@ -1,4 +1,4 @@
-(ns hawk.core-test
+(ns ^:exclude-tags-test ^:mic/test hawk.core-test
   (:require
    [clojure.test :refer :all]
    [hawk.core :as hawk]))
@@ -36,3 +36,19 @@
       (is (seq tests))
       (is (every? var? tests))
       (is (contains? (set tests) (resolve 'hawk.core-test/find-tests-test))))))
+
+(deftest exclude-tags-test
+  (are [options] (contains? (set (hawk/find-tests nil options))
+                            #'find-tests-test)
+    nil
+    {:exclude-tags nil}
+    {:exclude-tags []}
+    {:exclude-tags #{}}
+    {:exclude-tags [:another/tag]})
+  (are [options] (not (contains? (set (hawk/find-tests nil options))
+                                 #'find-tests-test))
+    {:exclude-tags [:exclude-tags-test]}
+    {:exclude-tags #{:exclude-tags-test}}
+    {:exclude-tags [:exclude-tags-test :another/tag]})
+  (is (not (contains? (set (hawk/find-tests nil {:exclude-tags [:exclude-tags-test]}))
+                      #'find-tests-test))))
