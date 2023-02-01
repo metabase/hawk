@@ -3,6 +3,7 @@
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
    [clojure.pprint :as pprint]
+   [clojure.set :as set]
    [clojure.string :as str]
    [clojure.test :as t]
    [clojure.tools.namespace.find :as ns.find]
@@ -62,22 +63,41 @@
          (filter #(include-namespace? % namespace-pattern))
          (mapcat #(find-tests % options)))))
 
+(defn- load-test-namespace [ns-symb]
+  (binding [hawk.init/*test-namespace-being-loaded* ns-symb]
+    (require ns-symb)))
+
+(defn- find-tests-for-var-symbol
+  [symb]
+  (load-test-namespace (symbol (namespace symb)))
+  [(or (resolve symb)
+       (throw (ex-info (format "Unable to resolve test named %s" symb) {:test-symbol symb})))])
+
+(defn- excluded-namespace-tags
+  "Return a set of all tags in a namespace metadata that are also in the `:exclude-tags` options."
+  [ns-symb options]
+  (when-let [excluded-tags (not-empty (set (:exclude-tags options)))]
+    (let [ns-tags (-> ns-symb find-ns meta keys set)]
+      (not-empty (set/intersection excluded-tags ns-tags)))))
+
+(defn- find-tests-for-namespace-symbol
+  [symb options]
+  (load-test-namespace symb)
+  (if-let [excluded-tags (not-empty (excluded-namespace-tags symb options))]
+    (println (format
+              "Skipping tests in `%s` due to excluded tag(s): %s"
+              symb
+              (->> excluded-tags sort (str/join ","))))
+    (eftest.runner/find-tests symb)))
+
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol
-  [symb _options]
-  (letfn [(load-test-namespace [ns-symb]
-            (binding [hawk.init/*test-namespace-being-loaded* ns-symb]
-              (require ns-symb)))]
-    (if-let [symbol-namespace (some-> (namespace symb) symbol)]
-      ;; a actual test var e.g. `metabase.whatever-test/my-test`
-      (do
-        (load-test-namespace symbol-namespace)
-        [(or (resolve symb)
-             (throw (ex-info (format "Unable to resolve test named %s" symb) {:test-symbol symb})))])
-      ;; a namespace e.g. `metabase.whatever-test`
-      (do
-        (load-test-namespace symb)
-        (eftest.runner/find-tests symb)))))
+  [symb options]
+  (if (namespace symb)
+    ;; a actual test var e.g. `metabase.whatever-test/my-test`
+    (find-tests-for-var-symbol symb)
+    ;; a namespace e.g. `metabase.whatever-test`
+    (find-tests-for-namespace-symbol symb options)))
 
 ;; default -- look in all dirs on the classpath
 (defmethod find-tests nil

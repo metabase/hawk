@@ -150,6 +150,32 @@ please submit a PR.
    :exclude-directories ["src" "resources" "shared/src"]}}}
 ```
 
+## Skipping namespaces
+
+You can optionally exclude tests in namespaces with certain tags by specifying the `:exclude-tags` option:
+
+```clj
+{:aliases
+ {:test
+  {:exec-fn      hawk.core/find-and-run-tests-cli
+   :exclude-tags [:my-project/skip-namespace]}}}
+```
+
+or
+
+```
+clj -X:test :exclude-tags '[:my-project/skip-namespace]'
+```
+
+And adding it to namespaces like
+
+```clj
+(ns ^:my-project/skip-namespace my.namespace
+  ...)
+```
+
+Currently only supported on namespaces! It would be nice to support this on individual tests as well -- PRs are welcome!
+
 ## Additional options
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation
