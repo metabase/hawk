@@ -1,5 +1,5 @@
-(ns hawk.init
-  "Code related to [[hawk.core]] initialization and utils for enforcing that code isn't allowed to run while
+(ns mb.hawk.init
+  "Code related to [[mb.hawk.core]] initialization and utils for enforcing that code isn't allowed to run while
   loading namespaces."
   (:require
    [clojure.pprint :as pprint]))
@@ -9,7 +9,7 @@
   nil)
 
 (defn assert-tests-are-not-initializing
-  "Check that we are not in the process of loading test namespaces when starting up [[hawk.core]]. For
+  "Check that we are not in the process of loading test namespaces when starting up [[mb.hawk.core]]. For
   example, you probably don't want to be doing stuff like creating application DB connections as a side-effect of
   loading test namespaces."
   [disallowed-message]

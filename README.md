@@ -20,7 +20,7 @@ spun it out so we can use it in other places too.
  {:test
   {:extra-paths ["test"]
    :extra-deps  {io.github.metabase/hawk {:sha "ca1775da999ed066947bd37ca5710167f4adecaa"}}
-   :exec-fn     hawk.core/find-and-run-tests-cli}}}
+   :exec-fn     mb.hawk.core/find-and-run-tests-cli}}}
 ```
 
 ## Leiningen-style test selection
@@ -50,16 +50,16 @@ how different EDN forms are interpreted as our test runner:
 
 ## Checking to make sure things don't happen during initialization
 
-You can use `hawk.init/assert-tests-are-not-initializing` to make sure things that shouldn't be happening as a
+You can use `mb.hawk.init/assert-tests-are-not-initializing` to make sure things that shouldn't be happening as a
 side-effect of loading namespaces, such as initializing a database, are not happening where they shouldn't be.
 
 ```clj
 (ns my.namespace
   (:require
-   [hawk.init]))
+   [mb.hawk.init]))
 
 (defn initialize-database! []
-  (hawk.init/assert-tests-are-not-initializing "Don't initialize the database in a top-level form!")
+  (mb.hawk.init/assert-tests-are-not-initializing "Don't initialize the database in a top-level form!")
   ...)
 ```
 
@@ -75,15 +75,15 @@ Unlike Eftest, parallelization in Hawk tests is opt-in. This is mostly a byprodu
 Metabase test runner. All tests are ran synchronously unless they are given `^:parallel` metadata (either the test
 itself, or the namespace).
 
-Hawk includes `hawk.parallel/assert-test-is-not-parallel`, which you can use to make sure things that shouldn't be ran
+Hawk includes `mb.hawk.parallel/assert-test-is-not-parallel`, which you can use to make sure things that shouldn't be ran
 in parallel tests are not:
 
 ```clj
 (ns my.namespace
-  (require [hawk.parallel]))
+  (require [mb.hawk.parallel]))
 
 (defn do-with-something-redefined [thunk]
-  (hawk.parallel/assert-test-is-not-parallel "Don't use do-with-something-redefined inside parallel tests!")
+  (mb.hawk.parallel/assert-test-is-not-parallel "Don't use do-with-something-redefined inside parallel tests!")
   (with-redefs [something something-else]
     (thunk)))
 ```
@@ -93,7 +93,7 @@ in parallel tests are not:
 Run tests from the REPL the same way the CLI will run them:
 
 ```clj
-(hawk.core/hawk.core/find-and-run-tests-repl {:only ['my.namespace-test]})
+(mb.hawk.core/find-and-run-tests-repl {:only ['my.namespace-test]})
 ```
 
 ## Additional `is` assertion types
@@ -121,9 +121,9 @@ The mode is determined as follows:
 
 3. Otherwise, if the env var `CI` or system property `ci` is set, `:cli/ci` will be used;
 
-4. If you use `hawk.core/find-and-run-tests-cli` as your `:exec-fn`, `:cli/local` will be used;
+4. If you use `mb.hawk.core/find-and-run-tests-cli` as your `:exec-fn`, `:cli/local` will be used;
 
-5. If you run tests from the REPL with `hawk.core/find-and-run-tests-repl`, `:repl` will be used.
+5. If you run tests from the REPL with `mb.hawk.core/find-and-run-tests-repl`, `:repl` will be used.
 
 ## Matching Namespace Patterns
 
@@ -133,7 +133,7 @@ Tell the test runner to only run tests against certain namespaces with `:namespa
 ;; only run tests against namespaces that start with `my-project` and end with `test`
 {:aliases
  {:test
-  {:exec-fn            hawk.core/find-and-run-tests-cli
+  {:exec-fn            mb.hawk.core/find-and-run-tests-cli
    :namespace-pattern "^my-project.*test$"}}}
 ```
 
@@ -146,7 +146,7 @@ please submit a PR.
 ```clj
 {:aliases
  {:test
-  {:exec-fn             hawk.core/find-and-run-tests-cli
+  {:exec-fn             mb.hawk.core/find-and-run-tests-cli
    :exclude-directories ["src" "resources" "shared/src"]}}}
 ```
 

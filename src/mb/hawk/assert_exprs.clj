@@ -1,11 +1,11 @@
-(ns hawk.assert-exprs
+(ns mb.hawk.assert-exprs
   "Custom implementations of [[clojure.test/is]] expressions (i.e., implementations of [[clojure.test/assert-expr]]).
   `re=`, `schema=`, `=?`, and more."
   (:require
    [clojure.data :as data]
    [clojure.test :as t]
    [clojure.walk :as walk]
-   [hawk.assert-exprs.approximately-equal :as approximately-equal]
+   [mb.hawk.assert-exprs.approximately-equal :as approximately-equal]
    [schema.core :as s]))
 
 (defmethod t/assert-expr 're= [msg [_ pattern actual]]

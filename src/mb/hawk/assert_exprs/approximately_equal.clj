@@ -1,4 +1,4 @@
-(ns hawk.assert-exprs.approximately-equal
+(ns mb.hawk.assert-exprs.approximately-equal
   "See documentation in `docs/approximately-equal.md`."
   (:require
    [clojure.algo.generic.math-functions :as algo.generic.math]

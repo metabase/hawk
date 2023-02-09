@@ -4,13 +4,13 @@ This adds a new test expression type `=?` that uses a [Methodical](https://githu
 to decide whether `expected` and `actual` should be "approximately equal". It dispatches on the types of `expected`
 and `actual`.
 
-Now while you can already write all the sort of "approximately equal" things you want in theory using `schema=`
-(defined in [`hawk.assert-exprs`](https://github.com/metabase/hawk/blob/main/src/hawk/assert_exprs.clj), in practice
-it's a bit of a hassle. Want to convert an `=` to `schema=` and change one key in a map to use `s/Int` instead of a
-specific number? Have fun wrapping every other value in `s/eq`. Want to ignore unused keys like `partial=`? You need
-to stick `s/Keyword s/Any` in every. single. map. `=?` takes the best of `schema=` and `partial=`, steals a few ideas
-from [Expectations](https://github.com/clojure-expectations/expectations), and is more powerful and easier to use than
-any of those three.
+Now while you can already write all the sort of "approximately equal" things you want in theory using `schema=` (defined
+in [`mb.hawk.assert-exprs`](https://github.com/metabase/hawk/blob/main/src/mb/hawk/assert_exprs.clj), in practice it's a
+bit of a hassle. Want to convert an `=` to `schema=` and change one key in a map to use `s/Int` instead of a specific
+number? Have fun wrapping every other value in `s/eq`. Want to ignore unused keys like `partial=`? You need to stick
+`s/Keyword s/Any` in every. single. map. `=?` takes the best of `schema=` and `partial=`, steals a few ideas from
+[Expectations](https://github.com/clojure-expectations/expectations), and is more powerful and easier to use than any of
+those three.
 
 `=` usages can be replaced with `=?` with no other changes -- you can replace that one single key with a predicate
 function and leave everything else the same.
