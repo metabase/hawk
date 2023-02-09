@@ -1,8 +1,8 @@
-(ns hawk.assert-exprs.approximately-equal-test
+(ns mb.hawk.assert-exprs.approximately-equal-test
   (:require
    [clojure.test :refer :all]
-   [hawk.assert-exprs :as test-runner.assert-exprs]
-   [hawk.assert-exprs.approximately-equal :as approximately-equal]
+   [mb.hawk.assert-exprs :as test-runner.assert-exprs]
+   [mb.hawk.assert-exprs.approximately-equal :as approximately-equal]
    [schema.core :as s]))
 
 (comment test-runner.assert-exprs/keep-me)

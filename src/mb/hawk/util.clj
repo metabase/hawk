@@ -1,4 +1,4 @@
-(ns hawk.util)
+(ns mb.hawk.util)
 
 (defn format-nanoseconds
   "Format a time interval in nanoseconds to something more readable. (µs/ms/etc.)"

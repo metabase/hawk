@@ -1,7 +1,7 @@
-(ns hawk.assert-exprs-test
+(ns mb.hawk.assert-exprs-test
   (:require
    [clojure.test :refer :all]
-   [hawk.assert-exprs :as test-runner.assert-exprs]))
+   [mb.hawk.assert-exprs :as test-runner.assert-exprs]))
 
 (deftest partial=-test
   (testing "Partial map"

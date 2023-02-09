@@ -1,7 +1,7 @@
-(ns hawk.junit
+(ns mb.hawk.junit
   (:require
    [clojure.test :as t]
-   [hawk.junit.write :as write]))
+   [mb.hawk.junit.write :as write]))
 
 (defmulti ^:private handle-event!*
   {:arglists '([event])}

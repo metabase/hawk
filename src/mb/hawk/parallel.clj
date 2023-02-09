@@ -1,4 +1,4 @@
-(ns hawk.parallel
+(ns mb.hawk.parallel
   "Code related to running parallel tests, and utilities for disallowing dangerous stuff inside them."
   (:require
    [clojure.test :as t]

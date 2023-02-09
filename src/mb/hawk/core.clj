@@ -1,4 +1,4 @@
-(ns hawk.core
+(ns mb.hawk.core
   (:require
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
@@ -11,15 +11,15 @@
    [eftest.report.progress]
    [eftest.runner]
    [environ.core :as env]
-   [hawk.assert-exprs]
-   [hawk.init :as hawk.init]
-   [hawk.junit :as hawk.junit]
-   [hawk.parallel :as hawk.parallel]
-   [hawk.util :as u]))
+   [mb.hawk.assert-exprs]
+   [mb.hawk.init :as hawk.init]
+   [mb.hawk.junit :as hawk.junit]
+   [mb.hawk.parallel :as hawk.parallel]
+   [mb.hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
 
-(comment hawk.assert-exprs/keep-me)
+(comment mb.hawk.assert-exprs/keep-me)
 
 ;;;; Finding tests
 

@@ -1,41 +1,41 @@
-(ns ^:exclude-tags-test ^:mic/test hawk.core-test
+(ns ^:exclude-tags-test ^:mic/test mb.hawk.core-test
   (:require
    [clojure.test :refer :all]
-   [hawk.core :as hawk]))
+   [mb.hawk.core :as hawk]))
 
 (deftest find-tests-test
   (testing "symbol naming"
     (testing "namespace"
-      (let [tests (hawk/find-tests 'hawk.assert-exprs-test nil)]
+      (let [tests (hawk/find-tests 'mb.hawk.assert-exprs-test nil)]
         (is (seq tests))
         (is (every? var? tests))))
     (testing "var"
-      (is (= [(resolve 'hawk.assert-exprs-test/partial=-test)]
-             (hawk/find-tests 'hawk.assert-exprs-test/partial=-test nil)))))
+      (is (= [(resolve 'mb.hawk.assert-exprs-test/partial=-test)]
+             (hawk/find-tests 'mb.hawk.assert-exprs-test/partial=-test nil)))))
   (testing "directory"
-    (let [tests (hawk/find-tests "test/hawk" nil)]
+    (let [tests (hawk/find-tests "test/mb/hawk" nil)]
       (is (seq tests))
       (is (every? var? tests))
-      (is (contains? (set tests) (resolve 'hawk.core-test/find-tests-test)))
-      (is (contains? (set tests) (resolve 'hawk.assert-exprs-test/partial=-test))))
+      (is (contains? (set tests) (resolve 'mb.hawk.core-test/find-tests-test)))
+      (is (contains? (set tests) (resolve 'mb.hawk.assert-exprs-test/partial=-test))))
     (testing "Exclude directories"
       (is (empty? (hawk/find-tests nil {:exclude-directories ["src" "test"]}))))
     (testing "Namespace pattern"
-      (is (some? (hawk/find-tests nil {:namespace-pattern "^hawk\\.core-test$"})))
-      (is (empty? (hawk/find-tests nil {:namespace-pattern "^hawk\\.corn-test$"})))))
+      (is (some? (hawk/find-tests nil {:namespace-pattern "^mb\\.hawk\\.core-test$"})))
+      (is (empty? (hawk/find-tests nil {:namespace-pattern "^mb\\.hawk\\.corn-test$"})))))
   (testing "everything"
     (let [tests (hawk/find-tests nil nil)]
       (is (seq tests))
       (is (every? var? tests))
-      (is (contains? (set tests) (resolve 'hawk.core-test/find-tests-test)))))
+      (is (contains? (set tests) (resolve 'mb.hawk.core-test/find-tests-test)))))
   (testing "sequence"
-    (let [tests (hawk/find-tests ['hawk.assert-exprs-test
-                                  'hawk.assert-exprs-test/partial=-test
-                                  "test/hawk"]
+    (let [tests (hawk/find-tests ['mb.hawk.assert-exprs-test
+                                  'mb.hawk.assert-exprs-test/partial=-test
+                                  "test/mb/hawk"]
                                  nil)]
       (is (seq tests))
       (is (every? var? tests))
-      (is (contains? (set tests) (resolve 'hawk.core-test/find-tests-test))))))
+      (is (contains? (set tests) (resolve 'mb.hawk.core-test/find-tests-test))))))
 
 (deftest exclude-tags-test
   (are [options] (contains? (set (hawk/find-tests nil options))
