@@ -133,8 +133,8 @@ Tell the test runner to only run tests against certain namespaces with `:namespa
 ;; only run tests against namespaces that start with `my-project` and end with `test`
 {:aliases
  {:test
-  {:exec-fn            mb.hawk.core/find-and-run-tests-cli
-   :namespace-pattern "^my-project.*test$"}}}
+  {:exec-fn    mb.hawk.core/find-and-run-tests-cli
+   :exec-args {:namespace-pattern "^my-project.*test$"}}}}
 ```
 
 ## Excluding directories
@@ -146,8 +146,8 @@ please submit a PR.
 ```clj
 {:aliases
  {:test
-  {:exec-fn             mb.hawk.core/find-and-run-tests-cli
-   :exclude-directories ["src" "resources" "shared/src"]}}}
+  {:exec-fn   mb.hawk.core/find-and-run-tests-cli
+   :exec-args {:exclude-directories ["src" "resources" "shared/src"]}}}}
 ```
 
 ## Skipping namespaces
@@ -157,8 +157,8 @@ You can optionally exclude tests in namespaces with certain tags by specifying t
 ```clj
 {:aliases
  {:test
-  {:exec-fn      hawk.core/find-and-run-tests-cli
-   :exclude-tags [:my-project/skip-namespace]}}}
+  {:exec-fn   hawk.core/find-and-run-tests-cli
+   :exec-args {:exclude-tags [:my-project/skip-namespace]}}}}
 ```
 
 or
