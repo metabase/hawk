@@ -157,7 +157,7 @@ You can optionally exclude tests in namespaces with certain tags by specifying t
 ```clj
 {:aliases
  {:test
-  {:exec-fn   hawk.core/find-and-run-tests-cli
+  {:exec-fn   mb.hawk.core/find-and-run-tests-cli
    :exec-args {:exclude-tags [:my-project/skip-namespace]}}}}
 ```
 
