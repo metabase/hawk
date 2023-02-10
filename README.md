@@ -67,7 +67,8 @@ side-effect of loading namespaces, such as initializing a database, are not happ
 
 Hawk automatically generates JUnit output using bespoke JUnit output code that prints diffs using
 [humane-test-output](https://github.com/pjstadig/humane-test-output). JUnit output is automatically output to
-`target/junit`. Not currently configurable! Submit a PR if you want to output it somewhere else.
+`target/junit`, and only in `:cli/ci` mode. Not currently configurable! Submit a PR if you want to output it somewhere
+else.
 
 ## Parallel Tests
 
