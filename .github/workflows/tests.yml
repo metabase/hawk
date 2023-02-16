@@ -2,6 +2,13 @@ name: Tests
 
 on:
   push:
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
 
 jobs:
   kondo:
@@ -43,7 +50,10 @@ jobs:
         restore-keys: |
           v1-${{ hashFiles('./deps.edn') }}-
           v1-
+    # to continue the workflow create an empty file `touch continue`
+    # or `sudo touch /continue` while still in an SSH session
     - name: Setup tmate session
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
       uses: mxschmitt/action-tmate@v3
       with:
         limit-access-to-actor: true
