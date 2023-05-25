@@ -4,13 +4,13 @@
             hawk.speak))
 
 (deftest speak-results-test
-  (are [summary expected] (let [sh-args (atom nil)]
+  (are [error fail expected] (let [sh-args (atom nil)]
                             (with-redefs [hawk.speak/enabled? (constantly true)
-                                          sh/sh (fn [& args] (reset! sh-args (vec args)))]
-                              (hawk.speak/handle-event! (assoc summary :type :summary))
-                              (= expected @sh-args)))
-    {:error 0 :fail 0} ["say" "all tests passed"]
-    {:error 1 :fail 0} ["say" "tests failed" "1 error"]
-    {:error 2 :fail 0} ["say" "tests failed" "2 errors"]
-    {:error 2 :fail 1} ["say" "tests failed" "2 errors" "1 failure"]
-    {:error 0 :fail 2} ["say" "tests failed" "2 failures"]))
+                                          sh/sh               (fn [& args] (reset! sh-args (vec args)))]
+                              (hawk.speak/handle-event! {:type :summary :error error :fail fail})
+                              (= (into ["say"] expected) @sh-args)))
+    0 0 ["all tests passed"]
+    1 0 ["tests failed" "1 error"]
+    2 0 ["tests failed" "2 errors"]
+    2 1 ["tests failed" "2 errors" "1 failure"]
+    0 2 ["tests failed" "2 failures"]))
