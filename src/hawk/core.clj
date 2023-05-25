@@ -14,8 +14,8 @@
    [hawk.assert-exprs]
    [hawk.init :as hawk.init]
    [hawk.junit :as hawk.junit]
-   hawk.speak
    [hawk.parallel :as hawk.parallel]
+   hawk.speak
    [hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
