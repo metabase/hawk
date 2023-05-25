@@ -14,6 +14,7 @@
    [hawk.assert-exprs]
    [hawk.init :as hawk.init]
    [hawk.junit :as hawk.junit]
+   hawk.speak
    [hawk.parallel :as hawk.parallel]
    [hawk.util :as u]))
 
@@ -145,6 +146,7 @@
                           :cli/local      eftest.report.progress/report)]
     (fn handle-event [event]
       (hawk.junit/handle-event! event)
+      (hawk.speak/handle-event! event)
       (stdout-reporter event))))
 
 (def ^:private env-mode
