@@ -15,6 +15,7 @@
    [mb.hawk.init :as hawk.init]
    [mb.hawk.junit :as hawk.junit]
    [mb.hawk.parallel :as hawk.parallel]
+   [mb.hawk.speak :as hawk.speak]
    [mb.hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
@@ -145,6 +146,7 @@
                           :cli/local      eftest.report.progress/report)]
     (fn handle-event [event]
       (hawk.junit/handle-event! event)
+      (hawk.speak/handle-event! event)
       (stdout-reporter event))))
 
 (def ^:private env-mode
