@@ -90,6 +90,24 @@ expected: {:a 1, :b #hawk/schema {(pred keyword?) (pred integer?)}}
           + nil
 ```
 
+### `#hawk/malli`
+
+`#hawk/malli` compares things to a `malli` schema:
+
+```clj
+(is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+        {:a 1, :b {:c 2}}))
+=> ok
+
+(is (=? {:a 1, :b #hawk/schema [:map-of :keyword :int]}
+        {:a 1, :b {:c 2.0}}))
+=>
+expected: {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+  actual: {:a 1, :b {:c 2.0}}
+    diff: - {:b {:c ["should be an integer"]}}
+
+```
+
 ### `#hawk/approx`
 
 `#hawk/approx` compares whether two numbers are approximately equal:
