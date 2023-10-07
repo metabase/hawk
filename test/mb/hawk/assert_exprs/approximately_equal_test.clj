@@ -131,8 +131,6 @@
       (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
               {:a 1, :b {:c 2, :d 3}})))
     (testing "failures"
-      ;; serialize these to strings and read them back out because Schema actually returns weird classes like
-      ;; ValidationError or whatever that aren't equal to their printed output
       (is (= '{:a ["should be an integer"]}
              (read-string (pr-str (approximately-equal/=?-diff #hawk/malli [:map [:a :int]] {:a 1.0})))))
       (testing "Inside a collection"
