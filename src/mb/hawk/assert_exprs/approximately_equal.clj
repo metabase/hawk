@@ -3,6 +3,8 @@
   (:require
    [clojure.algo.generic.math-functions :as algo.generic.math]
    [clojure.pprint :as pprint]
+   [malli.core :as m]
+   [malli.error :as me]
    [methodical.core :as methodical]
    [schema.core :as s]))
 
@@ -154,6 +156,31 @@
 (methodical/defmethod =?-diff [Schema :default]
   [^Schema this actual]
   (s/check (.schema this) actual))
+
+(deftype Malli [schema])
+
+(defn read-malli
+  "Data reader for `#hawk/malli`."
+  [schema-form]
+  (->Malli (eval schema-form)))
+
+(defmethod print-dup Malli
+  [^Malli this ^java.io.Writer writer]
+  (.write writer (format "#hawk/malli %s" (pr-str (.schema this)))))
+
+(defmethod print-method Malli
+  [this writer]
+  ((get-method print-dup Malli) this writer))
+
+(defmethod pprint/simple-dispatch Malli
+  [^Malli this]
+  (pprint/pprint-logical-block
+   :prefix "#hawk/malli " :suffix nil
+   (pprint/write-out (.schema this))))
+
+(methodical/defmethod =?-diff [Malli :default]
+  [^Malli this actual]
+  (me/humanize (m/explain (.schema this) actual)))
 
 (deftype Approx [expected epsilon])
 

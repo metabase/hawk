@@ -119,6 +119,24 @@
                (read-string (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/schema {:c s/Int}}
                                                                  {:a 1, :b {:c 2.0}})))))))))
 
+(deftest ^:parallel malli-test
+  (testing "#hawk/malli"
+    (is (=? #hawk/malli [:map [:a :int]]
+            {:a 1}))
+    (testing "Nested inside a collection"
+      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+              {:a 1, :b {}}))
+      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+              {:a 1, :b {:c 2}}))
+      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+              {:a 1, :b {:c 2, :d 3}})))
+    (testing "failures"
+      (is (= '{:a ["should be an integer"]}
+             (read-string (pr-str (approximately-equal/=?-diff #hawk/malli [:map [:a :int]] {:a 1.0})))))
+      (testing "Inside a collection"
+        (is (= '{:b {:c ["should be an integer"]}}
+               (read-string (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/malli [:map [:c :int]]}
+                                                                 {:a 1, :b {:c 2.0}})))))))))
 (deftest ^:parallel approx-test
   (testing "#hawk/approx"
     (is (=? #hawk/approx [1.5 0.1]
