@@ -99,7 +99,7 @@ expected: {:a 1, :b #hawk/schema {(pred keyword?) (pred integer?)}}
         {:a 1, :b {:c 2}}))
 => ok
 
-(is (=? {:a 1, :b #hawk/schema [:map-of :keyword :int]}
+(is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
         {:a 1, :b {:c 2.0}}))
 =>
 expected: {:a 1, :b #hawk/malli [:map-of :keyword :int]}
