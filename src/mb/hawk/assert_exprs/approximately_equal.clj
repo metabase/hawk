@@ -110,7 +110,7 @@
 (defn read-exactly
   "Data reader for `#hawk/exactly`."
   [expected-form]
-  (->Exactly (eval expected-form)))
+  `(->Exactly ~expected-form))
 
 (defmethod print-method Exactly
   [this writer]
@@ -137,7 +137,7 @@
 (defn read-schema
   "Data reader for `#hawk/schema`."
   [schema-form]
-  (->Schema (eval schema-form)))
+  `(->Schema ~schema-form))
 
 (defmethod print-method Schema
   [this writer]
@@ -162,7 +162,7 @@
 (defn read-malli
   "Data reader for `#hawk/malli`."
   [schema-form]
-  (->Malli (eval schema-form)))
+  `(->Malli ~schema-form))
 
 (defmethod print-dup Malli
   [^Malli this ^java.io.Writer writer]
