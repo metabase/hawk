@@ -3,7 +3,7 @@
    [clojure.test :refer :all]
    [malli.core :as m]
    [mb.hawk.assert-exprs :as test-runner.assert-exprs]
-   [mb.hawk.assert-exprs.approximately-equal :as approximately-equal]
+   [mb.hawk.assert-exprs.approximately-equal :as =?]
    [schema.core :as s]))
 
 (comment test-runner.assert-exprs/keep-me)
@@ -43,21 +43,21 @@
           [:a 100]))
   (testing "Should enforce that sequences are of the same length"
     (is (= [nil nil (list 'not= nil? nil)]
-           (approximately-equal/=?-diff [int? string? nil?]
-                                        [1 "two"])))
+           (=?/=?-diff [int? string? nil?]
+                       [1 "two"])))
     (is (= [nil nil (list 'not= nil? nil) (list 'not= nil "cans")]
-           (approximately-equal/=?-diff [int? string? nil?]
-                                        [1 "two" nil "cans"])))
+           (=?/=?-diff [int? string? nil?]
+                       [1 "two" nil "cans"])))
     (testing "Differentiate between [1 2 nil] and [1 2]"
       ;; these are the same answers [[clojure.data/diff]] would give in these situations. The output is a little more
       ;; obvious in failing tests because you can see the difference between expected and actual in addition to this
       ;; diff.
       (is (= [nil nil nil]
-             (approximately-equal/=?-diff [1 2 nil]
-                                          [1 2])))
+             (=?/=?-diff [1 2 nil]
+                         [1 2])))
       (is (= [nil nil nil]
-             (approximately-equal/=?-diff [1 2]
-                                          [1 2 nil]))))))
+             (=?/=?-diff [1 2]
+                         [1 2 nil]))))))
 
 (deftest ^:parallel custom-approximately-equal-methods
   (is (=? {[String java.time.LocalDate]
@@ -76,99 +76,99 @@
           {:a "abc", :b 100})))
 
 (deftest ^:parallel exactly-test
-  (testing "#hawk/exactly"
+  (testing "=?/exactly"
     (is (=? {:a 1}
             {:a 1, :b 2}))
     (testing "Fail when things are not exactly the same, as if by `=`"
       ;; these serialize the results to strings because it makes it easier to see what the output will look like when
       ;; printed out which is what we actually care about.
-      (is (= "(not (= #hawk/exactly {:a 1} {:a 1, :b 2}))"
-             (pr-str (approximately-equal/=?-diff #hawk/exactly {:a 1} {:a 1, :b 2}))))
+      (is (= "(not (= (exactly {:a 1}) {:a 1, :b 2}))"
+             (pr-str (=?/=?-diff (=?/exactly {:a 1}) {:a 1, :b 2}))))
       (testing "Inside a map"
-        (is (= "{:b (not (= #hawk/exactly {:a 1} {:a 1, :b 2}))}"
-               (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/exactly {:a 1}}
-                                                    {:a 1, :b {:a 1, :b 2}}))))))
+        (is (= "{:b (not (= (exactly {:a 1}) {:a 1, :b 2}))}"
+               (pr-str (=?/=?-diff {:a 1, :b (=?/exactly {:a 1})}
+                                   {:a 1, :b {:a 1, :b 2}}))))))
     (testing "Should pass when things are exactly the same as if by `=`"
-      (is (nil? (approximately-equal/=?-diff #hawk/exactly 2 2)))
-      (is (=? #hawk/exactly 2
+      (is (nil? (=?/=?-diff (=?/exactly 2) 2)))
+      (is (=? (=?/exactly 2)
               2))
       (testing "should evaluate args"
-        (is (=? #hawk/exactly (+ 1 1)
+        (is (=? (=?/exactly (+ 1 1))
                 2)))
       (testing "Inside a map"
-        (is (=? {:a 1, :b #hawk/exactly 2}
+        (is (=? {:a 1, :b (=?/exactly 2)}
                 {:a 1, :b 2}))))))
 
 (deftest ^:parallel schema-test
-  (testing "#hawk/schema"
-    (is (=? #hawk/schema {:a s/Int}
+  (testing "=?/schema"
+    (is (=? (=?/schema {:a s/Int})
             {:a 1}))
     (testing "Nested inside a collection"
-      (is (=? {:a 1, :b #hawk/schema {s/Keyword s/Int}}
+      (is (=? {:a 1, :b (=?/schema {s/Keyword s/Int})}
               {:a 1, :b {}}))
-      (is (=? {:a 1, :b #hawk/schema {s/Keyword s/Int}}
+      (is (=? {:a 1, :b (=?/schema {s/Keyword s/Int})}
               {:a 1, :b {:c 2}}))
-      (is (=? {:a 1, :b #hawk/schema {s/Keyword s/Int}}
+      (is (=? {:a 1, :b (=?/schema {s/Keyword s/Int})}
               {:a 1, :b {:c 2, :d 3}})))
     (testing "failures"
       ;; serialize these to strings and read them back out because Schema actually returns weird classes like
       ;; ValidationError or whatever that aren't equal to their printed output
       (is (= '{:a (not (integer? 1.0))}
-             (read-string (pr-str (approximately-equal/=?-diff #hawk/schema {:a s/Int} {:a 1.0})))))
+             (read-string (pr-str (=?/=?-diff (=?/schema {:a s/Int}) {:a 1.0})))))
       (testing "Inside a collection"
         (is (= '{:b {:c (not (integer? 2.0))}}
-               (read-string (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/schema {:c s/Int}}
-                                                                 {:a 1, :b {:c 2.0}})))))))))
+               (read-string (pr-str (=?/=?-diff {:a 1, :b (=?/schema {:c s/Int})}
+                                                {:a 1, :b {:c 2.0}})))))))))
 
 (deftest ^:parallel malli-test
-  (testing "#hawk/malli"
-    (is (=? #hawk/malli [:map [:a :int]]
+  (testing "=?/malli"
+    (is (=? (=?/malli [:map [:a :int]])
             {:a 1}))
     (testing "Nested inside a collection"
-      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+      (is (=? {:a 1, :b (=?/malli [:map-of :keyword :int])}
               {:a 1, :b {}}))
-      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+      (is (=? {:a 1, :b (=?/malli [:map-of :keyword :int])}
               {:a 1, :b {:c 2}}))
-      (is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+      (is (=? {:a 1, :b (=?/malli [:map-of :keyword :int])}
               {:a 1, :b {:c 2, :d 3}})))
     (testing "failures"
       (is (= '{:a ["should be an integer"]}
-             (read-string (pr-str (approximately-equal/=?-diff #hawk/malli [:map [:a :int]] {:a 1.0})))))
+             (read-string (pr-str (=?/=?-diff (=?/malli [:map [:a :int]]) {:a 1.0})))))
       (testing "Inside a collection"
         (is (= '{:b {:c ["should be an integer"]}}
-               (read-string (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/malli [:map [:c :int]]}
-                                                                 {:a 1, :b {:c 2.0}})))))))
+               (read-string (pr-str (=?/=?-diff {:a 1, :b (=?/malli [:map [:c :int]])}
+                                                {:a 1, :b {:c 2.0}})))))))
     (testing "Doesn't double evaluate functions (#12)"
-      (let [schema #hawk/malli [:map [:k map?]]]
+      (let [schema (=?/malli [:map [:k map?]])]
         (is (identical? map? (-> (.schema schema) last last))
             "Got a double compiled function in schema")
         (is (m/validate (.schema schema) {:k {}}))))))
 
 
 (deftest ^:parallel approx-test
-  (testing "#hawk/approx"
-    (is (=? #hawk/approx [1.5 0.1]
+  (testing "=?/approx"
+    (is (=? (=?/approx [1.5 0.1])
             1.51))
     (testing "Nested inside a collection"
-      (is (=? {:a 1, :b #hawk/approx [1.5 0.1]}
+      (is (=? {:a 1, :b (=?/approx [1.5 0.1])}
               {:a 1, :b 1.51})))
     ;; failures below render stuff to strings so we can see it the way it will look in test failures with its nice
     ;; comment and whatnot
     (testing "failures"
-      (is (= "(not (approx= 1.5 1.6 #_epsilon 0.1))"
-             (pr-str (approximately-equal/=?-diff #hawk/approx [1.5 0.1] 1.6))))
+      (is (= "(not (approx 1.5 1.6 #_epsilon 0.1))"
+             (pr-str (=?/=?-diff (=?/approx [1.5 0.1]) 1.6))))
       (testing "Inside a collection"
-        (is (= "{:b (not (approx= 1.5 1.6 #_epsilon 0.1))}"
-               (pr-str (approximately-equal/=?-diff {:a 1, :b #hawk/approx [1.5 0.1]}
-                                                    {:a 1, :b 1.6}))))))
+        (is (= "{:b (not (approx 1.5 1.6 #_epsilon 0.1))}"
+               (pr-str (=?/=?-diff {:a 1, :b (=?/approx [1.5 0.1])}
+                                   {:a 1, :b 1.6}))))))
     (testing "Eval the args"
-      (is (=? #hawk/approx [(+ 1.0 0.5) (- 1.0 0.9)]
+      (is (=? (=?/approx [(+ 1.0 0.5) (- 1.0 0.9)])
               1.51)))
     (testing "A large epsilon"
-      (is (=? #hawk/approx [1 10.0]
+      (is (=? (=?/approx [1 10.0])
               9.0))
-      (is (= "(not (approx= 1 20.0 #_epsilon 10.0))"
-             (pr-str (approximately-equal/=?-diff #hawk/approx [1 10.0] 20.0)))))
-    (testing "nil should not match the #hawk/approx method -- fall back to the :default"
-      (is (= "(not= #hawk/approx [1 0.1] nil)"
-             (pr-str (approximately-equal/=?-diff #hawk/approx [1 0.1] nil)))))))
+      (is (= "(not (approx 1 20.0 #_epsilon 10.0))"
+             (pr-str (=?/=?-diff (=?/approx [1 10.0]) 20.0)))))
+    (testing "nil should not match the =?/approx method -- fall back to the :default"
+      (is (= "(not= (approx [1 0.1]) nil)"
+             (pr-str (=?/=?-diff (=?/approx [1 0.1]) nil)))))))
