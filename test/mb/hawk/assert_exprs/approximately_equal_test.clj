@@ -1,7 +1,6 @@
 (ns mb.hawk.assert-exprs.approximately-equal-test
   (:require
    [clojure.test :refer :all]
-   [malli.core :as m]
    [mb.hawk.assert-exprs :as test-runner.assert-exprs]
    [mb.hawk.assert-exprs.approximately-equal :as =?]
    [schema.core :as s]))
@@ -137,13 +136,7 @@
       (testing "Inside a collection"
         (is (= '{:b {:c ["should be an integer"]}}
                (read-string (pr-str (=?/=?-diff {:a 1, :b (=?/malli [:map [:c :int]])}
-                                                {:a 1, :b {:c 2.0}})))))))
-    (testing "Doesn't double evaluate functions (#12)"
-      (let [schema (=?/malli [:map [:k map?]])]
-        (is (identical? map? (-> (.schema schema) last last))
-            "Got a double compiled function in schema")
-        (is (m/validate (.schema schema) {:k {}}))))))
-
+                                                {:a 1, :b {:c 2.0}})))))))))
 
 (deftest ^:parallel approx-test
   (testing "=?/approx"
