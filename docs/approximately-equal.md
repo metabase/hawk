@@ -53,77 +53,83 @@ aren't. In this case, it returns something like
 
 This is printed in the correct place by humanized test output and other things that can print diffs.
 
-## Reader tags:
+## Built-in functions for other `=?` behaviors:
 
-### `#hawk/exactly`
+Built-in functions for `=?` are defined in the `mb.hawk.assert-exprs.approximately-equal` namespace. You can create
+an alias for this namespace like so:
+```clj
+(require '[mb.hawk.assert-exprs.approximately-equal :as =?])
+```
 
-`#hawk/exactly` means results have to be exactly equal as if by `=`. Use this to get around the normal way `=?` would
+### `exactly`
+
+`exactly` means results have to be exactly equal as if by `=`. Use this to get around the normal way `=?` would
 compare things. This works inside collections as well.
 
 ```clj
-(is (=? {:m #hawk/exactly {:a 1}}
+(is (=? {:m (=?/exactly {:a 1})}
         {:m {:a 1, :b 2}}))
 ;; =>
-expected: {:m #hawk/exactly {:a 1}}
+expected: {:m (exactly {:a 1})}
 
   actual: {:m {:a 1, :b 2}}
-    diff: - {:m (not (= #hawk/exactly {:a 1} {:a 1, :b 2}))}
+    diff: - {:m (not (= (exactly {:a 1}) {:a 1, :b 2}))}
           + nil
 ```
 
-### `#hawk/schema`
+### `schema`
 
-`#hawk/schema` compares things to a `schema.core` Schema:
+`schema` compares things to a `schema.core` Schema:
 
 ```clj
-(is (=? {:a 1, :b #hawk/schema {s/Keyword s/Int}}
+(is (=? {:a 1, :b (=?/schema {s/Keyword s/Int})}
         {:a 1, :b {:c 2}}))
 => ok
 
-(is (=? {:a 1, :b #hawk/schema {s/Keyword s/Int}}
+(is (=? {:a 1, :b (=?/schema {s/Keyword s/Int})}
         {:a 1, :b {:c 2.0}}))
 =>
-expected: {:a 1, :b #hawk/schema {(pred keyword?) (pred integer?)}}
+expected: {:a 1, :b (schema {(pred keyword?) (pred integer?)})}
 
   actual: {:a 1, :b {:c 2.0}}
     diff: - {:b {:c (not (integer? 2.0))}}
           + nil
 ```
 
-### `#hawk/malli`
+### `malli`
 
-`#hawk/malli` compares things to a `malli` schema:
+`malli` compares things to a `malli` schema:
 
 ```clj
-(is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+(is (=? {:a 1, :b (=?/malli [:map-of :keyword :int])}
         {:a 1, :b {:c 2}}))
 => ok
 
-(is (=? {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+(is (=? {:a 1, :b (=?/malli [:map-of :keyword :int])}
         {:a 1, :b {:c 2.0}}))
 =>
-expected: {:a 1, :b #hawk/malli [:map-of :keyword :int]}
+expected: {:a 1, :b (malli [:map-of :keyword :int])}
   actual: {:a 1, :b {:c 2.0}}
     diff: - {:b {:c ["should be an integer"]}}
 
 ```
 
-### `#hawk/approx`
+### `approx`
 
-`#hawk/approx` compares whether two numbers are approximately equal:
+`approx` compares whether two numbers are approximately equal:
 
 ```clj
 ;; is the difference between actual and 1.5 less than ±0.1?
-(is (=? #hawk/approx [1.5 0.1]
+(is (=? (=?/approx [1.5 0.1])
         1.51))
 => true
 
-(is (=? #hawk/approx [1.5 0.1]
+(is (=? (=?/approx [1.5 0.1])
         1.6))
 =>
-expected: #hawk/approx [1.5 0.1]
+expected: (approx [1.5 0.1])
 
   actual: 1.6
-    diff: - (not (approx= 1.5 1.6 #_epsilon 0.1))
+    diff: - (not (approx 1.5 1.6 #_epsilon 0.1))
           + nil
 ```

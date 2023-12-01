@@ -107,10 +107,11 @@
 
 (deftype Exactly [expected])
 
-(defn read-exactly
-  "Data reader for `#hawk/exactly`."
-  [expected-form]
-  `(->Exactly ~expected-form))
+(defn exactly
+  "Used inside a =? expression. Results have to be exactly equal as if by =. Use this to get around the normal way =?
+  would compare things. This works inside collections as well."
+  [expected]
+  (->Exactly expected))
 
 (defmethod print-method Exactly
   [this writer]
@@ -118,26 +119,26 @@
 
 (defmethod print-dup Exactly
   [^Exactly this ^java.io.Writer writer]
-  (.write writer (format "#hawk/exactly %s" (pr-str (.expected this)))))
+  (.write writer (format "(exactly %s)" (pr-str (.expected this)))))
 
 (defmethod pprint/simple-dispatch Exactly
   [^Exactly this]
   (pprint/pprint-logical-block
-   :prefix "#hawk/exactly " :suffix nil
+   :prefix "(exactly " :suffix ")"
    (pprint/write-out (.expected this))))
 
 (methodical/defmethod =?-diff [Exactly :default]
   [^Exactly this actual]
   (let [expected (.expected this)]
     (when-not (= expected actual)
-      (list 'not (list '= (symbol "#hawk/exactly") expected actual)))))
+      (list 'not (list '= (list 'exactly expected) actual)))))
 
 (deftype Schema [schema])
 
-(defn read-schema
-  "Data reader for `#hawk/schema`."
-  [schema-form]
-  `(->Schema ~schema-form))
+(defn schema
+  "Used inside a =? expression. Compares things to a schema.core schema."
+  [schema]
+  (->Schema schema))
 
 (defmethod print-method Schema
   [this writer]
@@ -145,12 +146,12 @@
 
 (defmethod print-dup Schema
   [^Schema this ^java.io.Writer writer]
-  (.write writer (format "#hawk/schema %s" (pr-str (.schema this)))))
+  (.write writer (format "(schema %s)" (pr-str (.schema this)))))
 
 (defmethod pprint/simple-dispatch Schema
   [^Schema this]
   (pprint/pprint-logical-block
-   :prefix "#hawk/schema " :suffix nil
+   :prefix "(malli " :suffix ")"
    (pprint/write-out (.schema this))))
 
 (methodical/defmethod =?-diff [Schema :default]
@@ -159,14 +160,14 @@
 
 (deftype Malli [schema])
 
-(defn read-malli
-  "Data reader for `#hawk/malli`."
-  [schema-form]
-  `(->Malli ~schema-form))
+(defn malli
+  "Used inside a =? expression. Compares things to a malli schema."
+  [schema]
+  (->Malli schema))
 
 (defmethod print-dup Malli
   [^Malli this ^java.io.Writer writer]
-  (.write writer (format "#hawk/malli %s" (pr-str (.schema this)))))
+  (.write writer (format "(malli %s)" (pr-str (.schema this)))))
 
 (defmethod print-method Malli
   [this writer]
@@ -175,7 +176,7 @@
 (defmethod pprint/simple-dispatch Malli
   [^Malli this]
   (pprint/pprint-logical-block
-   :prefix "#hawk/malli " :suffix nil
+   :prefix "(malli " :suffix ")"
    (pprint/write-out (.schema this))))
 
 (methodical/defmethod =?-diff [Malli :default]
@@ -184,11 +185,11 @@
 
 (deftype Approx [expected epsilon])
 
-(defn read-approx
-  "Data reader for `#hawk/approx`."
+(defn approx
+  "Used inside a =? expression. Compares whether two numbers are approximately equal."
   [form]
   (let [form (eval form)
-        _ (assert (sequential? form) "Expected #hawk/approx [expected epsilon]")
+        _ (assert (sequential? form) "Expected (approx [expected epsilon])")
         [expected epsilon] form]
     (assert (number? expected))
     (assert (number? epsilon))
@@ -200,12 +201,12 @@
 
 (defmethod print-dup Approx
   [^Approx this ^java.io.Writer writer]
-  (.write writer (format "#hawk/approx %s" (pr-str [(.expected this) (.epsilon this)]))))
+  (.write writer (format "(approx %s)" (pr-str [(.expected this) (.epsilon this)]))))
 
 (defmethod pprint/simple-dispatch Approx
   [^Approx this]
   (pprint/pprint-logical-block
-   :prefix "#hawk/approx " :suffix nil
+   :prefix "(approx " :suffix ")"
    (pprint/write-out [(.expected this) (.epsilon this)])))
 
 (methodical/defmethod =?-diff [Approx Number]
@@ -213,4 +214,4 @@
   (let [expected (.expected this)
         epsilon  (.epsilon this)]
     (when-not (algo.generic.math/approx= expected actual epsilon)
-      (list 'not (list 'approx= expected actual (symbol "#_epsilon") epsilon)))))
+      (list 'not (list 'approx expected actual (symbol "#_epsilon") epsilon)))))
