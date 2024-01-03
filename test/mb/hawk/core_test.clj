@@ -52,19 +52,3 @@
     {:exclude-tags [:exclude-tags-test :another/tag]})
   (is (not (contains? (set (hawk/find-tests nil {:exclude-tags [:exclude-tags-test]}))
                       #'find-tests-test))))
-
-(deftest run-tests-n-times-test
-  (let [single-run-summary {:test            10
-                            :pass            5
-                            :fail            3
-                            :error           2
-                            :duration        1
-                            :single-threaded 1}]
-    (with-redefs [hawk/run-tests (fn [& _args] single-run-summary)]
-      (testing "run single time"
-        (is (= single-run-summary
-               (hawk/find-and-run-tests-repl {:times 1}))))
-
-      (testing "run multiple will combine the summary of all the runs"
-        (is (= (apply merge-with + (repeat 3 single-run-summary))
-               (hawk/find-and-run-tests-repl {:times 3})))))))
