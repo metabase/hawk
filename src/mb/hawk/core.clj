@@ -188,12 +188,36 @@
             options))
           @*parallel-test-counter*))))))
 
+(defn- ordinal-str
+  [n]
+  (let [suffix (if (and (>= n 11) (<= (mod n 100) 13))
+                 "th"
+                 (nth ["th" "st" "nd" "rd" "th"] (min (mod n 10) 4)))]
+    (str n suffix)))
+
+(defn- run-tests-n-times
+  "[[run-tests]] but repeat `n` times.
+  Returns the combined summary of all the individual test runs."
+  [test-vars options n]
+  (printf "Running tests %d times\n" n)
+  (apply merge-with (fn [x y] (if (number? x)
+                                (+ x y)
+                                y))
+         (for [i (range n)]
+           (do
+            (println "----------------------------")
+            (printf "Running tests the %s %s\n" (ordinal-str i) (if (> 1 i) "times" "time"))
+            (run-tests test-vars options)))))
+
 (defn- find-and-run-tests-with-options
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
   for full list of options."
   [options]
   (let [start-time-ms (System/currentTimeMillis)
-        summary       (run-tests (find-tests-with-options options) options)
+        test-vars     (find-tests-with-options options)
+        summary       (if-let [n (get options :times)]
+                        (run-tests-n-times test-vars options n)
+                        (run-tests test-vars options))
         fail?         (pos? (+ (:error summary) (:fail summary)))]
     (pprint/pprint summary)
     (printf "Ran %d tests in parallel, %d single-threaded.\n" (:parallel summary 0) (:single-threaded summary 0))
