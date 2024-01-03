@@ -203,7 +203,7 @@
   (apply merge-with (fn [x y] (if (number? x)
                                 (+ x y)
                                 y))
-         (for [i (range n)]
+         (for [i (range 1 (inc n))]
            (do
             (println "----------------------------")
             (printf "Running tests the %s %s\n" (ordinal-str i) (if (> 1 i) "times" "time"))

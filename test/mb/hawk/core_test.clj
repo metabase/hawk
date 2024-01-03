@@ -62,9 +62,9 @@
                             :single-threaded 1}]
     (with-redefs [hawk/run-tests (fn [& _args] single-run-summary)]
       (testing "run single time"
-       (is (= single-run-summary
-              (hawk/find-and-run-tests-repl {:times 1}))))
+        (is (= single-run-summary
+               (hawk/find-and-run-tests-repl {:times 1}))))
 
       (testing "run multiple will combine the summary of all the runs"
-       (is (= (apply merge-with + (repeat 3 single-run-summary))
-              (hawk/find-and-run-tests-repl {:times 3})))))))
+        (is (= (apply merge-with + (repeat 3 single-run-summary))
+               (hawk/find-and-run-tests-repl {:times 3})))))))
