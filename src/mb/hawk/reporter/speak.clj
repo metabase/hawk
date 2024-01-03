@@ -1,4 +1,4 @@
-(ns mb.hawk.speak
+(ns mb.hawk.reporter.speak
   (:require [clojure.java.shell :as sh]))
 
 (defmulti handle-event!

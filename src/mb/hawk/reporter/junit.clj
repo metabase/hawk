@@ -1,4 +1,4 @@
-(ns mb.hawk.junit
+(ns mb.hawk.reporter.junit
   (:require
    [clojure.test :as t]
    [mb.hawk.junit.write :as write]))

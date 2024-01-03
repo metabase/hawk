@@ -13,9 +13,9 @@
    [environ.core :as env]
    [mb.hawk.assert-exprs]
    [mb.hawk.init :as hawk.init]
-   [mb.hawk.junit :as hawk.junit]
    [mb.hawk.parallel :as hawk.parallel]
-   [mb.hawk.speak :as hawk.speak]
+   [mb.hawk.reporter.junit :as hawk.reporter.junit]
+   [mb.hawk.reporter.speak :as hawk.reporter.speak]
    [mb.hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
@@ -145,8 +145,8 @@
                           (:cli/ci :repl) eftest.report.pretty/report
                           :cli/local      eftest.report.progress/report)]
     (fn handle-event [event]
-      (hawk.junit/handle-event! event)
-      (hawk.speak/handle-event! event)
+      (hawk.reporter.junit/handle-event! event)
+      (hawk.reporter.speak/handle-event! event)
       (stdout-reporter event))))
 
 (def ^:private env-mode
