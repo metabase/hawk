@@ -14,8 +14,7 @@
    [mb.hawk.assert-exprs]
    [mb.hawk.init :as hawk.init]
    [mb.hawk.parallel :as hawk.parallel]
-   [mb.hawk.reporter.junit :as hawk.reporter.junit]
-   [mb.hawk.reporter.speak :as hawk.reporter.speak]
+   [mb.hawk.reporter.interface :as hawk.reporter]
    [mb.hawk.util :as u]))
 
 (set! *warn-on-reflection* true)
@@ -137,18 +136,6 @@
 
 (alter-var-root #'t/test-var (constantly run-test))
 
-(defn- reporter
-  "Create a new test reporter/event handler, a function with the signature `(handle-event event)` that gets called once
-  for every [[clojure.test]] event, including stuff like `:begin-test-run`, `:end-test-var`, and `:fail`."
-  [options]
-  (let [stdout-reporter (case (:mode options)
-                          (:cli/ci :repl) eftest.report.pretty/report
-                          :cli/local      eftest.report.progress/report)]
-    (fn handle-event [event]
-      (hawk.reporter.junit/handle-event! event)
-      (hawk.reporter.speak/handle-event! event)
-      (stdout-reporter event))))
-
 (def ^:private env-mode
   (cond
     (env/env :hawk-mode)
@@ -184,7 +171,7 @@
            (merge
             {:capture-output? false
              :multithread?    :vars
-             :report          (reporter options)}
+             :report          (hawk.reporter/reporter options)}
             options))
           @*parallel-test-counter*))))))
 
