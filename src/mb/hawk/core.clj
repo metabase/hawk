@@ -194,9 +194,9 @@
   [test-vars options n]
   (printf "Running tests %d times\n" n)
   (reduce (fn [acc test-result] (merge-with
-                                 #(if (number? %1)
+                                 #(if (number? %2)
                                     (+ %1 %2)
-                                    %1)
+                                    %2)
                                  acc
                                  test-result))
           (for [i (range 1 (inc n))]
