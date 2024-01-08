@@ -193,14 +193,17 @@
   Returns the combined summary of all the individual test runs."
   [test-vars options n]
   (printf "Running tests %d times\n" n)
-  (apply merge-with (fn [x y] (if (number? x)
-                                (+ x y)
-                                y))
-         (for [i (range 1 (inc n))]
-           (do
-            (println "----------------------------")
-            (printf "Starting test iteration #%d\n" i)
-            (run-tests test-vars options)))))
+  (reduce (fn [acc test-result] (merge-with
+                                 #(if (number? %1)
+                                    (+ %1 %2)
+                                    %1)
+                                 acc
+                                 test-result))
+          (for [i (range 1 (inc n))]
+            (do
+             (println "----------------------------")
+             (printf "Starting test iteration #%d\n" i)
+             (run-tests test-vars options)))))
 
 (defn- find-and-run-tests-with-options
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
