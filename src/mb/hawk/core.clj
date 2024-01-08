@@ -188,13 +188,6 @@
             options))
           @*parallel-test-counter*))))))
 
-(defn- ordinal-str
-  [n]
-  (let [suffix (if (and (>= n 11) (<= (mod n 100) 13))
-                 "th"
-                 (nth ["th" "st" "nd" "rd" "th"] (min (mod n 10) 4)))]
-    (str n suffix)))
-
 (defn- run-tests-n-times
   "[[run-tests]] but repeat `n` times.
   Returns the combined summary of all the individual test runs."
@@ -206,7 +199,7 @@
          (for [i (range 1 (inc n))]
            (do
             (println "----------------------------")
-            (printf "Running tests the %s %s\n" (ordinal-str i) (if (> 1 i) "times" "time"))
+            (printf "Starting test iteration #%d\n" i)
             (run-tests test-vars options)))))
 
 (defn- find-and-run-tests-with-options
