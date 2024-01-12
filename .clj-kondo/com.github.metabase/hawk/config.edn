@@ -1,4 +1,4 @@
 {:linters
  {:unresolved-symbol
   {:exclude
-   [(clojure.test/is [partial= query= re= schema= sql= =?])]}}}
+   [(clojure.test/is [partial= re= schema= =?])]}}}
