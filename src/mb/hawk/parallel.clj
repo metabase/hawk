@@ -8,8 +8,9 @@
   "Whether `test-var` can be ran in parallel with other parallel tests."
   [test-var]
   (let [metta (meta test-var)]
-    (or (:parallel metta)
-        (:parallel (-> metta :ns meta)))))
+    (if-some [var-parallel (:parallel metta)]
+      var-parallel
+      (:parallel (-> metta :ns meta)))))
 
 (def ^:private synchronized? (complement parallel?))
 
