@@ -177,6 +177,29 @@ And adding it to namespaces like
 
 Currently only supported on namespaces! It would be nice to support this on individual tests as well -- PRs are welcome!
 
+## Whole-Suite Hooks
+
+You can specify hooks to run before or after the entire test suite runs like so:
+
+```clj
+(methodical/defmethod mb.hawk.hooks/before-run ::my-hook
+  [_options]
+  (do-something-before-test-suite-starts!))
+
+(methodical/defmethod mb.hawk.hooks/after-run ::my-hook
+  [_options]
+  (do-cleanup-when-test-suite-finishes!))
+```
+
+`options` are the same options passed to the test runner as a whole, i.e. a combination of those specified in your
+`deps.edn` aliases as well as additional command-line options.
+
+The dispatch value is not particularly important -- one hook will run for each dispatch value -- but you should probably
+make it a namespaced keyword to avoid conflicts, and give it a docstring so people know why it's there. The order the
+hooks are run in is indeterminate. The docstrings for `before-run` and `after-run` are updated automatically as new
+hooks are added; you can check it to see which hooks are in use. Note that hooks will not be ran unless the namespace
+they live in is loaded; this may be affected by `:only` options passed to the test runner.
+
 ## Additional options
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation

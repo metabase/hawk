@@ -12,6 +12,7 @@
    [eftest.runner]
    [environ.core :as env]
    [mb.hawk.assert-exprs]
+   [mb.hawk.hooks :as hawk.hooks]
    [mb.hawk.init :as hawk.init]
    [mb.hawk.junit :as hawk.junit]
    [mb.hawk.parallel :as hawk.parallel]
@@ -193,12 +194,15 @@
   for full list of options."
   [options]
   (let [start-time-ms (System/currentTimeMillis)
-        summary       (run-tests (find-tests-with-options options) options)
+        tests         (find-tests-with-options options)
+        _             (hawk.hooks/before-run options)
+        summary       (run-tests tests options)
         fail?         (pos? (+ (:error summary) (:fail summary)))]
     (pprint/pprint summary)
     (printf "Ran %d tests in parallel, %d single-threaded.\n" (:parallel summary 0) (:single-threaded summary 0))
     (printf "Finding and running tests took %s.\n" (u/format-milliseconds (- (System/currentTimeMillis) start-time-ms)))
     (println (if fail? "Tests failed." "All tests passed."))
+    (hawk.hooks/after-run options)
     (case (:mode options)
       (:cli/local :cli/ci) (System/exit (if fail? 1 0))
       :repl                summary)))
