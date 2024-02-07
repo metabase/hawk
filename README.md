@@ -200,6 +200,8 @@ hooks are run in is indeterminate. The docstrings for `before-run` and `after-ru
 hooks are added; you can check it to see which hooks are in use. Note that hooks will not be ran unless the namespace
 they live in is loaded; this may be affected by `:only` options passed to the test runner.
 
+Return values of methods are ignored; they are done purely for side effects.
+
 ## Additional options
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation

@@ -210,18 +210,23 @@
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
   for full list of options."
   [options]
-  (let [start-time-ms (System/currentTimeMillis)
-        test-vars     (find-tests-with-options options)
-        _             (hawk.hooks/before-run options)
-        summary       (if-let [n (get options :times)]
-                        (run-tests-n-times test-vars options n)
-                        (run-tests test-vars options))
-        fail?         (pos? (+ (:error summary) (:fail summary)))]
-    (pprint/pprint summary)
-    (printf "Ran %d tests in parallel, %d single-threaded.\n" (:parallel summary 0) (:single-threaded summary 0))
-    (printf "Finding and running tests took %s.\n" (u/format-milliseconds (- (System/currentTimeMillis) start-time-ms)))
-    (println (if fail? "Tests failed." "All tests passed."))
-    (hawk.hooks/after-run options)
+  (let [start-time-ms   (System/currentTimeMillis)
+        test-vars       (find-tests-with-options options)
+        _               (hawk.hooks/before-run options)
+        [summary fail?] (try
+                          (let [summary (if-let [n (get options :times)]
+                                          (run-tests-n-times test-vars options n)
+                                          (run-tests test-vars options))
+                                fail?   (pos? (+ (:error summary) (:fail summary)))]
+                            (pprint/pprint summary)
+                            (printf "Ran %d tests in parallel, %d single-threaded.\n"
+                                    (:parallel summary 0) (:single-threaded summary 0))
+                            (printf "Finding and running tests took %s.\n"
+                                    (u/format-milliseconds (- (System/currentTimeMillis) start-time-ms)))
+                            (println (if fail? "Tests failed." "All tests passed."))
+                            [summary fail?])
+                          (finally
+                            (hawk.hooks/after-run options)))]
     (case (:mode options)
       (:cli/local :cli/ci) (System/exit (if fail? 1 0))
       :repl                summary)))

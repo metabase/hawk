@@ -16,7 +16,9 @@
   probably make it a namespaced keyword to avoid conflicts, and give it a docstring so people know why it's there. The
   orders the hooks are run in is indeterminate. The docstring for [[before-run]] is updated automatically as new hooks
   are added; you can check it to see which hooks are in use. Note that hooks will not be ran unless the namespace they
-  live in is loaded; this may be affected by `:only` options passed to the test runner."
+  live in is loaded; this may be affected by `:only` options passed to the test runner.
+
+  Return values of methods are ignored; they are done purely for side effects."
   {:arglists '([options]), :defmethod-arities #{1}}
   :none
   :combo      (methodical/do-method-combination)
@@ -42,7 +44,9 @@
   probably make it a namespaced keyword to avoid conflicts, and give it a docstring so people know why it's there. The
   orders the hooks are run in is indeterminate. The docstring for [[after-run]] is updated automatically as new hooks
   are added; you can check it to see which hooks are in use. Note that hooks will not be ran unless the namespace they
-  live in is loaded; this may be affected by `:only` options passed to the test runner."
+  live in is loaded; this may be affected by `:only` options passed to the test runner.
+
+  Return values of methods are ignored; they are done purely for side effects."
   {:arglists '([options]), :defmethod-arities #{1}}
   :none
   :combo      (methodical/do-method-combination)
