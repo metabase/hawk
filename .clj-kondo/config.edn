@@ -8,7 +8,11 @@
 
   :refer-all
   {:level   :warning
-   :exclude [clojure.test]}}
+   :exclude [clojure.test]}
+
+  :consistent-alias
+  {:aliases
+   {methodical.core methodical}}}
 
  :config-in-comment
  {:linters {:unresolved-symbol {:level :off}}}}

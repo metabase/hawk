@@ -13,3 +13,6 @@ pom.xml.asc
 .nrepl-port
 .cpcache/
 .clj-kondo/.cache
+/.lsp/
+# malli + clj-kondo: ignore malli-types
+.clj-kondo/metosin/malli-types-clj
