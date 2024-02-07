@@ -189,14 +189,33 @@
             options))
           @*parallel-test-counter*))))))
 
+(defn- run-tests-n-times
+  "[[run-tests]] but repeat `n` times.
+  Returns the combined summary of all the individual test runs."
+  [test-vars options n]
+  (printf "Running tests %d times\n" n)
+  (reduce (fn [acc test-result] (merge-with
+                                 #(if (number? %2)
+                                    (+ %1 %2)
+                                    %2)
+                                 acc
+                                 test-result))
+          (for [i (range 1 (inc n))]
+            (do
+             (println "----------------------------")
+             (printf "Starting test iteration #%d\n" i)
+             (run-tests test-vars options)))))
+
 (defn- find-and-run-tests-with-options
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
   for full list of options."
   [options]
   (let [start-time-ms (System/currentTimeMillis)
-        tests         (find-tests-with-options options)
+        test-vars     (find-tests-with-options options)
         _             (hawk.hooks/before-run options)
-        summary       (run-tests tests options)
+        summary       (if-let [n (get options :times)]
+                        (run-tests-n-times test-vars options n)
+                        (run-tests test-vars options))
         fail?         (pos? (+ (:error summary) (:fail summary)))]
     (pprint/pprint summary)
     (printf "Ran %d tests in parallel, %d single-threaded.\n" (:parallel summary 0) (:single-threaded summary 0))
