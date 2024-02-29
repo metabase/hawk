@@ -1,4 +1,4 @@
-(ns mb.hawk.junit.write
+(ns mb.hawk.reporter.junit.write
   "Logic related to writing test results for a namespace to a JUnit XML file. See
   https://stackoverflow.com/a/9410271/1198455 for the JUnit output spec."
   (:require
