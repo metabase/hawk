@@ -75,22 +75,41 @@
   [(or (resolve symb)
        (throw (ex-info (format "Unable to resolve test named %s" symb) {:test-symbol symb})))])
 
+(defn- excluded-element-tags
+  "Return the set of all tags in an element's metadata that are also in the `:exclude-tags` options."
+  [element options]
+  (when-let [excluded-tags (not-empty (set (:exclude-tags options)))]
+    (let [ns-tags (-> element meta keys set)]
+      (not-empty (set/intersection excluded-tags ns-tags)))))
+
 (defn- excluded-namespace-tags
   "Return a set of all tags in a namespace metadata that are also in the `:exclude-tags` options."
   [ns-symb options]
-  (when-let [excluded-tags (not-empty (set (:exclude-tags options)))]
-    (let [ns-tags (-> ns-symb find-ns meta keys set)]
-      (not-empty (set/intersection excluded-tags ns-tags)))))
+  (excluded-element-tags (find-ns ns-symb) options))
+
+(defn- filter-tests-by-tag
+  "Filter out the test cases with tags that are also in the `:exclude-tags` options."
+  [tests options]
+  (filter (fn [test]
+            (if-let [excluded-tags (not-empty (excluded-element-tags test options))]
+              (println (format
+                        "Skipping test `%s` due to excluded tag(s): %s"
+                        (:name (meta test))
+                        (->> excluded-tags sort (str/join ","))))
+              test))
+          tests))
 
 (defn- find-tests-for-namespace-symbol
-  [symb options]
-  (load-test-namespace symb)
-  (if-let [excluded-tags (not-empty (excluded-namespace-tags symb options))]
+  [ns-symb options]
+  (load-test-namespace ns-symb)
+  (if-let [excluded-tags (not-empty (excluded-namespace-tags ns-symb options))]
     (println (format
               "Skipping tests in `%s` due to excluded tag(s): %s"
-              symb
+              ns-symb
               (->> excluded-tags sort (str/join ","))))
-    (eftest.runner/find-tests symb)))
+    (filter-tests-by-tag
+     (eftest.runner/find-tests ns-symb)
+     options)))
 
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol
