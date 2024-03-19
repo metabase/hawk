@@ -3,7 +3,7 @@
    [clojure.test :refer :all]
    [mb.hawk.core :as hawk]))
 
-(deftest find-tests-test
+(deftest ^:exclude-this-test find-tests-test
   (testing "symbol naming"
     (testing "namespace"
       (let [tests (hawk/find-tests 'mb.hawk.assert-exprs-test nil)]
@@ -37,18 +37,24 @@
       (is (every? var? tests))
       (is (contains? (set tests) (resolve 'mb.hawk.core-test/find-tests-test))))))
 
+(def ^:private this-ns (ns-name *ns*))
+
 (deftest exclude-tags-test
-  (are [options] (contains? (set (hawk/find-tests nil options))
-                            #'find-tests-test)
+  (are [options] (every? (set (hawk/find-tests this-ns options)) [#'find-tests-test #'exclude-tags-test])
     nil
     {:exclude-tags nil}
     {:exclude-tags []}
     {:exclude-tags #{}}
     {:exclude-tags [:another/tag]})
-  (are [options] (not (contains? (set (hawk/find-tests nil options))
-                                 #'find-tests-test))
+
+  (are [options] (not (some (set (hawk/find-tests this-ns options)) [#'find-tests-test #'exclude-tags-test]))
     {:exclude-tags [:exclude-tags-test]}
     {:exclude-tags #{:exclude-tags-test}}
     {:exclude-tags [:exclude-tags-test :another/tag]})
-  (is (not (contains? (set (hawk/find-tests nil {:exclude-tags [:exclude-tags-test]}))
-                      #'find-tests-test))))
+
+  (are [options] (let [tests (set (hawk/find-tests this-ns options))]
+                   (and (not (contains? tests #'find-tests-test))
+                        (contains? tests #'exclude-tags-test)))
+    {:exclude-tags [:exclude-this-test]}
+    {:exclude-tags #{:exclude-this-test}}
+    {:exclude-tags [:exclude-this-test :another/tag]}))
