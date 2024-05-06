@@ -32,6 +32,9 @@
   "Whether to enable Methodical method tracing for debug purposes."
   false)
 
+(def ^:private ^:dynamic *same*
+  nil)
+
 (defn =?-diff*
   "Are `expected` and `actual` 'approximately' equal to one another?"
   ([expected actual]
@@ -41,7 +44,8 @@
    (let [diff-fn (if (map? diff-fn)
                    (add-primary-methods diff-fn)
                    diff-fn)]
-     (binding [=?-diff diff-fn]
+     (binding [=?-diff diff-fn
+               *same* (atom {})]
        (if *debug*
          (methodical/trace diff-fn expected actual)
          (diff-fn expected actual))))))
@@ -215,3 +219,43 @@
         epsilon  (.epsilon this)]
     (when-not (algo.generic.math/approx= expected actual epsilon)
       (list 'not (list 'approx expected actual (symbol "#_epsilon") epsilon)))))
+
+(deftype Same [k])
+
+(defn same
+  "Used inside a =? expression. Checks that all occurrences of the same [[k]] value are equal.
+
+   On the first occurrence of `(same k)`, it saves the actual value under [[k]].
+   All other occurrences of `(same k)` are expected to be equal to that saved value.
+
+   ```
+   (is (?= [(same :id) (same :id)}] [1 1])) ; => true
+   (is (?= [(same :id) (same :id)}] [1 2])) ; => false
+   ```"
+  [k]
+  (->Same k))
+
+(defmethod print-dup Same
+  [^Same this ^java.io.Writer writer]
+  (.write writer (format "(same %s)" (pr-str (.k this)))))
+
+(defmethod print-method Same
+  [this writer]
+  ((get-method print-dup Same) this writer))
+
+(defmethod pprint/simple-dispatch Same
+  [^Same this]
+  (pprint/pprint-logical-block
+   :prefix "(same " :suffix ")"
+   (pprint/write-out (.k this))))
+
+(methodical/defmethod =?-diff [Same :default]
+  [^Same this actual]
+  (when *same*
+    (if (contains? @*same* (.k this))
+      (let [previous-value (get @*same* (.k this))]
+        (when-not (= previous-value actual)
+          (list 'not= previous-value actual)))
+      (do
+        (swap! *same* assoc (.k this) actual)
+        nil))))
