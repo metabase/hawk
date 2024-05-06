@@ -165,3 +165,25 @@
     (testing "nil should not match the =?/approx method -- fall back to the :default"
       (is (= "(not= (approx [1 0.1]) nil)"
              (pr-str (=?/=?-diff (=?/approx [1 0.1]) nil)))))))
+
+(deftest ^:parallel same-test
+  (testing "pr-str"
+    (is (= "(same :a)" (pr-str (=?/same :a)))))
+  (testing "Same does nothing with 1 occurrence"
+    (is (=? (=?/same :a) 1)))
+  (testing "Multiple occurrences are the same"
+    (is (=? [(=?/same :a) (=?/same :b) (=?/same :b) (=?/same :a)] [1 2 2 1])))
+  (testing "Works nested"
+    (is (=? [(=?/same :a) {:nested (=?/same :a)}] [1 {:nested 1}])))
+  (testing "Works on complex values"
+    (is (=? [(=?/same :a) {:nested (=?/same :a)}] [#{1 2 3} {:nested #{1 2 3}}])))
+  (testing "When not the same"
+    (is (= "[nil (not= #_ (same :a) 1 2)]"
+           (pr-str (=?/=?-diff* [(=?/same :a) (=?/same :a)] [1 2]))))
+    (is (= "[nil (not= #_ (same :a) 1 2) nil (not= #_ (same :b) 2 3)]"
+           (pr-str (=?/=?-diff* [(=?/same :a) (=?/same :a)
+                                 (=?/same :b) (=?/same :b)]
+                                [1 2 2 3]))))
+    (testing "Not the same and nested"
+      (is (= "[nil {:nested (not= #_ (same :a) 1 2)}]"
+             (pr-str (=?/=?-diff* [(=?/same :a) {:nested (=?/same :a)}] [1 {:nested 2}])))))))
