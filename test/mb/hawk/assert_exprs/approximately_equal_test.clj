@@ -178,12 +178,12 @@
   (testing "Works on complex values"
     (is (=? [(=?/same :a) {:nested (=?/same :a)}] [#{1 2 3} {:nested #{1 2 3}}])))
   (testing "When not the same"
-    (is (= "[nil (not= 1 2)]"
+    (is (= "[nil (not= #_ (same :a) 1 2)]"
            (pr-str (=?/=?-diff* [(=?/same :a) (=?/same :a)] [1 2]))))
-    (is (= "[nil (not= 1 2) nil (not= 2 3)]"
+    (is (= "[nil (not= #_ (same :a) 1 2) nil (not= #_ (same :b) 2 3)]"
            (pr-str (=?/=?-diff* [(=?/same :a) (=?/same :a)
                                  (=?/same :b) (=?/same :b)]
                                 [1 2 2 3]))))
     (testing "Not the same and nested"
-      (is (= "[nil {:nested (not= 1 2)}]"
+      (is (= "[nil {:nested (not= #_ (same :a) 1 2)}]"
              (pr-str (=?/=?-diff* [(=?/same :a) {:nested (=?/same :a)}] [1 {:nested 2}])))))))

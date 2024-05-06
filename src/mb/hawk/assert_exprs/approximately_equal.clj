@@ -255,7 +255,7 @@
     (if (contains? @*same* (.k this))
       (let [previous-value (get @*same* (.k this))]
         (when-not (= previous-value actual)
-          (list 'not= previous-value actual)))
+          (list 'not= (symbol "#_") (list 'same (.k this)) previous-value actual)))
       (do
         (swap! *same* assoc (.k this) actual)
         nil))))
