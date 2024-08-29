@@ -58,3 +58,48 @@
     {:exclude-tags [:exclude-this-test]}
     {:exclude-tags #{:exclude-this-test}}
     {:exclude-tags [:exclude-this-test :another/tag]}))
+
+(deftest ^:parallel partition-tests-test
+  (are [i expected] (= expected
+                       (#'hawk/partition-tests
+                        (range 4)
+                        {:partition/index i, :partition/total 3}))
+    0 [0 1]
+    1 [2]
+    2 [3])
+  (are [i expected] (= expected
+                       (#'hawk/partition-tests
+                        (range 5)
+                        {:partition/index i, :partition/total 3}))
+    0 [0 1]
+    1 [2 3]
+    2 [4]))
+
+(deftest ^:parallel partition-tests-determinism-test
+  (testing "partitioning should be deterministic even if tests come back in a non-deterministic order for some reason"
+    (are [i expected] (= expected
+                         (#'hawk/partition-tests
+                          (shuffle (map #(format "%02d" %) (range 26)))
+                          {:partition/index i, :partition/total 10}))
+      0 ["00" "01" "02"]
+      1 ["03" "04" "05"]
+      2 ["06" "07"]
+      3 ["08" "09" "10"]
+      4 ["11" "12"]
+      5 ["13" "14" "15"]
+      6 ["16" "17" "18"]
+      7 ["19" "20"]
+      8 ["21" "22" "23"]
+      9 ["24" "25"])))
+
+(deftest ^:parallel partition-test
+  (are [index expected] (= expected
+                           (hawk/find-tests-with-options {:only            `[find-tests-test
+                                                                             exclude-tags-test
+                                                                             partition-tests-test
+                                                                             partition-test]
+                                                          :partition/index index
+                                                          :partition/total 3}))
+    0 [#'find-tests-test #'exclude-tags-test]
+    1 [#'partition-tests-test]
+    2 [#'partition-test]))
