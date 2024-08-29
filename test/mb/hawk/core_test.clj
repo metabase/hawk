@@ -100,6 +100,6 @@
                                                                              partition-test]
                                                           :partition/index index
                                                           :partition/total 3}))
-    0 [#'find-tests-test #'exclude-tags-test]
-    1 [#'partition-tests-test]
-    2 [#'partition-test]))
+    0 [#'exclude-tags-test #'find-tests-test]
+    1 [#'partition-test]
+    2 [#'partition-tests-test]))
