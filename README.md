@@ -1,3 +1,5 @@
+[![Clojars Project](https://clojars.org/io.github.metabase/hawk/latest-version.svg)](https://clojars.org/io.github.metabase/hawk/)
+
 # Hawk
 
 It watches your code like a hawk! You like tests, right? Then run them with our state-of-the-art Clojure test runner.
