@@ -22,5 +22,11 @@
   {:exec-fn   mb.hawk.core/find-and-run-tests-cli
    :exec-args {:exclude-directories ["src" "resources"]}}
 
+  ;; clojure -T:build
+  :build
+  {:deps       {io.github.clojure/tools.build {:mvn/version "0.9.6"}
+                slipset/deps-deploy           {:mvn/version "0.2.1"}}
+   :ns-default build}
+
   :ci
   {:jvm-opts ["-Dhawk.mode" "cli/ci"]}}}
