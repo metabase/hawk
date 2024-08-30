@@ -216,7 +216,7 @@ Running 575 tests
 ...
 ```
 
-`:partition/index` is zero-based, e.g. if you ten partitions (`:partiton/total 10`) then the first partition is `0` and
+`:partition/index` is zero-based, e.g. if you have ten partitions (`:partiton/total 10`) then the first partition is `0` and
 the last is `9`.
 
 Tests are partitioned at the `deftest` level after all tests are found the usual way -- all namespaces that would be
