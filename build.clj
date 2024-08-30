@@ -27,7 +27,7 @@
     (parse-long (sh "git" "rev-list" "--count" (str last-sha "..HEAD")))))
 
 (defn commit-number []
-  (if (= "master" (sh "git" "rev-parse" "--abbrev-ref" "HEAD"))
+  (if (= "main" (sh "git" "rev-parse" "--abbrev-ref" "HEAD"))
     (commits-since-version-changed)
     "9999-SNAPSHOT"))
 
