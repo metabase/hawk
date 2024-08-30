@@ -202,11 +202,33 @@ they live in is loaded; this may be affected by `:only` options passed to the te
 
 Return values of methods are ignored; they are done purely for side effects.
 
+## Partitioning tests
+
+You can divide a test suite into multiple partitions using the `:partition/total` and `:partition/index` keys. This is
+an easy way to speed up CI by diving large test suites into multiple jobs.
+
+```
+clj -X:test '{:partition/total 10, :partition/index 8}'
+...
+Running tests in partition 9 of 10 (575 tests of 5753)...
+Finding tests took 46.6 s.
+Running 575 tests
+...
+```
+
+`:partition/index` is zero-based, e.g. if you have ten partitions (`:partiton/total 10`) then the first partition is `0` and
+the last is `9`.
+
+Tests are partitioned at the `deftest` level after all tests are found the usual way -- all namespaces that would be
+loaded if you were running the entire test suite are still loaded. Partitions are split as evenly as possible, but
+tests are guaranteed to be split deterministically into exactly the number of partitions you asked for.
+
+
 ## Additional options
 
 All other options are passed directly to [Eftest](https://github.com/weavejester/eftest); refer to its documentation
 for more information.
 
 ```
-clj -X:test :fail-fast? true
+clj -X:test '{:fail-fast? true}'
 ```
