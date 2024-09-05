@@ -1,16 +1,14 @@
-(ns mb.hawk.speak
-  (:require [clojure.java.shell :as sh]))
+(ns mb.hawk.reporter.speak
+  (:require
+   [clojure.java.shell :as sh]
+   [mb.hawk.reporter.interface :as hawk.reporter]))
 
-(defmulti handle-event!
-  "Handles a test event by speaking(!?) it if appropriate"
-  :type)
+(hawk.reporter/register-reporter! :hawk/speak)
 
 (defn- enabled? [] (some? (System/getenv "SPEAK_TEST_RESULTS")))
 
-(defmethod handle-event! :default [_] nil)
-
-(defmethod handle-event! :summary
-  [{:keys [error fail]}]
+(defmethod hawk.reporter/handle-event [:hawk/speak :summary]
+  [_ {:keys [error fail]}]
   (when (enabled?)
     (apply sh/sh "say"
            (if (zero? (+ error fail))
