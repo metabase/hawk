@@ -2,7 +2,6 @@
   (:require
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
-   [clojure.math :as math]
    [clojure.pprint :as pprint]
    [clojure.set :as set]
    [clojure.string :as str]
