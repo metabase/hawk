@@ -218,12 +218,13 @@ Running 575 tests
 ...
 ```
 
-`:partition/index` is zero-based, e.g. if you have ten partitions (`:partiton/total 10`) then the first partition is `0` and
-the last is `9`.
+`:partition/index` is zero-based, e.g. if you have ten partitions (`:partiton/total 10`) then the first partition is `0`
+and the last is `9`.
 
-Tests are partitioned at the `deftest` level after all tests are found the usual way -- all namespaces that would be
-loaded if you were running the entire test suite are still loaded. Partitions are split as evenly as possible, but
-tests are guaranteed to be split deterministically into exactly the number of partitions you asked for.
+Tests are partitioned at the var (`deftest`) level after all tests are found the usual way, but all tests in any given
+namespace will always be split into the same partition. All namespaces that would be loaded if you were running the
+entire test suite are still loaded. Partitions are split as evenly as possible, but tests are guaranteed to be split
+deterministically into exactly the number of partitions you asked for.
 
 
 ## Additional options
