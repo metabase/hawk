@@ -28,5 +28,20 @@
                 slipset/deps-deploy           {:mvn/version "0.2.1"}}
    :ns-default build}
 
+  ;; clojure -M:kondo --lint src test
+  ;;
+  ;; clojure -M:kondo --version
+  ;;
+  ;; clojure -M:kondo --copy-configs --dependencies --lint "$(clojure -A:dev -Spath)" --skip-lint --parallel
+  ;;
+  ;; Run Kondo from the JVM using the pinned version. Preferable to running the installed command since we can pin the
+  ;; version here which may be different from the version installed on your computer.
+  :kondo
+  {:replace-deps
+   {clj-kondo/clj-kondo {:mvn/version "2024.08.29"}}
+
+   :main-opts
+   ["-m" "clj-kondo.main"]}
+
   :ci
   {:jvm-opts ["-Dhawk.mode" "cli/ci"]}}}
