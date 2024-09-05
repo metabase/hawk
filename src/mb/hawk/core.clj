@@ -121,23 +121,87 @@
   [_nil options]
   (find-tests (classpath/system-classpath) options))
 
-(defn- partition-all-into-n-partitions
-  "Split sequence `xs` into `num-partitions` as equally as possible. Guaranteed to return `num-partitions`. This custom
-  function is used instead of [[partition-all]] or whatever because we want to make sure every partition gets tests,
-  even with weird combinations like 4 tests with 3 partitions or 29 tests with 10 partitions."
-  [num-partitions xs]
+(defn- namespace*
+  "Like [[clojure.core/namespace]] but handles vars."
+  [x]
+  (cond
+    (instance? clojure.lang.Named x) (namespace x)
+    (var? x)                         (namespace (symbol x))
+    :else                            nil))
+
+(defn- ensure-test-namespaces-are-contiguous
+  "Make sure `test-vars` have all the tests for each namespace next to one another so when we split we can do so without
+  splitting in the middle of a namespace. Does not otherwise change the order of the tests or namespaces."
+  [test-vars]
+  (let [namespace->sort-position (into {}
+                                       (map-indexed
+                                        (fn [i nmspace]
+                                          [nmspace i]))
+                                       (distinct (map namespace* test-vars)))
+        test-var->sort-position  (into {}
+                                       (map-indexed
+                                        (fn [i varr]
+                                          [varr i]))
+                                       test-vars)]
+    (sort-by (juxt #(namespace->sort-position (namespace* %))
+                   test-var->sort-position)
+             test-vars)))
+
+(defn- make-test-var->partition [num-partitions test-vars]
+  (let [;; first figure out approximately how big each partition should be.
+        target-partition-size          (/ (count test-vars) num-partitions)
+        ;; then for each test var figure out what partition it would live in ideally if we weren't worried about making
+        ;; sure namespaces are grouped together.
+        test-var->ideal-partition      (into {}
+                                             (map-indexed (fn [i test-var]
+                                                            (let [ideal-partition (long (math/floor (/ i target-partition-size)))]
+                                                              (assert (<= 0 ideal-partition (dec num-partitions)))
+                                                              [test-var ideal-partition]))
+                                                          test-vars))
+        ;; For each namespace figure out how many tests are in each and what the possible partitions we can put that
+        ;; namespace into. For most namespaces there should only be one possible partition but for some the ideal split
+        ;; happens in the middle of the namespace which means we have two possible candidate partitions to put it into.
+        namespace->num-tests           (reduce
+                                        (fn [m test-var]
+                                          (update m (namespace* test-var) (fnil inc 0)))
+                                        {}
+                                        test-vars)
+        namespace->possible-partitions (reduce
+                                        (fn [m test-var]
+                                          (update m (namespace* test-var) #(conj (set %) (test-var->ideal-partition test-var))))
+                                        {}
+                                        test-vars)
+        ;; Decide the canonical partition for each namespace. Keep track of how many tests are in each partititon. If
+        ;; there are multiple possible candidate partitions for a namespace, choose the one that has the least tests in
+        ;; it.
+        namespace->partition           (:namespace->partition
+                                        (reduce
+                                         (fn [m nmspace]
+                                           (let [partition (first (sort-by (fn [partition]
+                                                                             (get-in m [:partition->size partition]))
+                                                                           (namespace->possible-partitions nmspace)))]
+                                             (-> m
+                                                 (update-in [:partition->size partition] (fnil + 0) (namespace->num-tests nmspace))
+                                                 (assoc-in [:namespace->partition nmspace] partition))))
+                                         {}
+                                         ;; process namespaces in the order they appear in test-vars
+                                         (distinct (map namespace* test-vars))))]
+    (fn test-var->partition [test-var]
+      (get namespace->partition (namespace* test-var)))))
+
+(defn- partition-tests-into-n-partitions
+  "Split a sequence of `test-vars` into `num-partitions` (returning a map of partition number => sequence of tests).
+  Attempts to divide tests up into partitions that are as equal as possible, but keeps tests in the same namespace
+  grouped together."
+  [num-partitions test-vars]
   {:post [(= (count %) num-partitions)]}
-  ;; make sure the partitioning is deterministic -- `xs` should always come back in the same order but we should sort
-  ;; just to be safe.
-  (let [xs             (sort-by str xs)
-        partition-size (/ (count xs) num-partitions)]
-    (into []
-          (comp (map-indexed (fn [i x]
-                               [(long (math/floor (/ i partition-size))) x]))
-                (partition-by first)
-                (map (fn [partition]
-                       (map second partition))))
-          xs)))
+  (let [test-vars           (ensure-test-namespaces-are-contiguous test-vars)
+        test-var->partition (make-test-var->partition num-partitions test-vars)]
+    (reduce
+     (fn [m test-var]
+       (update m (test-var->partition test-var) #(conj (vec %) test-var)))
+     (sorted-map)
+     test-vars)))
 
 (defn- partition-tests [tests {num-partitions :partition/total, partition-index :partition/index, :as _options}]
   (if (or num-partitions partition-index)
@@ -152,8 +216,8 @@
               "Invalid :partition/index - must be an integer")
       (assert (<= 0 partition-index (dec num-partitions))
               (format "Invalid :partition/index - must be between 0 and %d" (dec num-partitions)))
-      (let [partitions (partition-all-into-n-partitions num-partitions tests)
-            partition  (nth partitions partition-index)]
+      (let [partition-index->tests (partition-tests-into-n-partitions num-partitions tests)
+            partition              (get partition-index->tests partition-index)]
         (printf "Running tests in partition %d of %d (%d tests of %d)...\n"
                 (inc partition-index)
                 num-partitions
