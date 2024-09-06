@@ -51,17 +51,17 @@
            (partition-tests* 2 '[a/test-1 a/test-2 a/test-3 b/test-1])))))
 
 (deftest ^:parallel partition-preserve-order-test
-  (testing "Partitioning should preserve order of namespaces and vars"
-    (is (= '{0 [b/test-1 b/test-2 b/test-3]
-             1 [a/test-1 a/test-3 a/test-2]}
+  (testing "Partitioning should sort namespaces but preserve order of vars"
+    (is (= '{0 [a/test-1 a/test-3 a/test-2]
+             1 [b/test-1 b/test-2 b/test-3]}
            (partition-tests* 2 '[b/test-1 b/test-2 b/test-3 a/test-1 a/test-3 a/test-2])))))
 
 (deftest ^:parallel partition-test
   (is (= {0 [#'mb.hawk.core-test/find-tests-test
              #'mb.hawk.core-test/exclude-tags-test]
-          1 [#'mb.hawk.speak-test/speak-results-test]
-          2 [#'mb.hawk.parallel-test/ns-parallel-test
-             #'mb.hawk.parallel-test/var-not-parallel-test]}
+          1 [#'mb.hawk.parallel-test/ns-parallel-test
+             #'mb.hawk.parallel-test/var-not-parallel-test]
+          2 [#'mb.hawk.speak-test/speak-results-test]}
          (into (sorted-map)
                (map (fn [i]
                       [i (hawk/find-tests-with-options

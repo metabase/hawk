@@ -10,22 +10,16 @@
     (var? x)                         (namespace (symbol x))
     :else                            nil))
 
-(defn- ensure-test-namespaces-are-contiguous
-  "Make sure `test-vars` have all the tests for each namespace next to one another so when we split we can do so without
-  splitting in the middle of a namespace. Does not otherwise change the order of the tests or namespaces."
+(defn- sort-tests-by-namespace
+  "The test runner normally sorts the namespaces before running tests, so we should do the same before we partition things
+  if we want them to make sense. Preserve the order of the vars inside each namespace."
   [test-vars]
-  (let [namespace->sort-position (into {}
-                                       (map-indexed
-                                        (fn [i nmspace]
-                                          [nmspace i]))
-                                       (distinct (map namespace* test-vars)))
-        test-var->sort-position  (into {}
-                                       (map-indexed
-                                        (fn [i varr]
-                                          [varr i]))
-                                       test-vars)]
-    (sort-by (juxt #(namespace->sort-position (namespace* %))
-                   test-var->sort-position)
+  (let [test-var->sort-position (into {}
+                                      (map-indexed
+                                       (fn [i varr]
+                                         [varr i]))
+                                      test-vars)]
+    (sort-by (juxt namespace* test-var->sort-position)
              test-vars)))
 
 (defn- namespace->num-tests
@@ -118,7 +112,7 @@
   grouped together."
   [num-partitions test-vars]
   {:post [(= (count %) num-partitions)]}
-  (let [test-vars           (ensure-test-namespaces-are-contiguous test-vars)
+  (let [test-vars           (sort-tests-by-namespace test-vars)
         test-var->partition (make-test-var->partition num-partitions test-vars)]
     (reduce
      (fn [m test-var]
