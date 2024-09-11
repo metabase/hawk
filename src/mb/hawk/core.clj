@@ -2,7 +2,6 @@
   (:require
    [clojure.java.classpath :as classpath]
    [clojure.java.io :as io]
-   [clojure.math :as math]
    [clojure.pprint :as pprint]
    [clojure.set :as set]
    [clojure.string :as str]
@@ -17,6 +16,7 @@
    [mb.hawk.init :as hawk.init]
    [mb.hawk.junit :as hawk.junit]
    [mb.hawk.parallel :as hawk.parallel]
+   [mb.hawk.partition :as hawk.partition]
    [mb.hawk.speak :as hawk.speak]
    [mb.hawk.util :as u]))
 
@@ -121,47 +121,6 @@
   [_nil options]
   (find-tests (classpath/system-classpath) options))
 
-(defn- partition-all-into-n-partitions
-  "Split sequence `xs` into `num-partitions` as equally as possible. Guaranteed to return `num-partitions`. This custom
-  function is used instead of [[partition-all]] or whatever because we want to make sure every partition gets tests,
-  even with weird combinations like 4 tests with 3 partitions or 29 tests with 10 partitions."
-  [num-partitions xs]
-  {:post [(= (count %) num-partitions)]}
-  ;; make sure the partitioning is deterministic -- `xs` should always come back in the same order but we should sort
-  ;; just to be safe.
-  (let [xs             (sort-by str xs)
-        partition-size (/ (count xs) num-partitions)]
-    (into []
-          (comp (map-indexed (fn [i x]
-                               [(long (math/floor (/ i partition-size))) x]))
-                (partition-by first)
-                (map (fn [partition]
-                       (map second partition))))
-          xs)))
-
-(defn- partition-tests [tests {num-partitions :partition/total, partition-index :partition/index, :as _options}]
-  (if (or num-partitions partition-index)
-    (do
-      (assert (and num-partitions partition-index)
-              ":partition/total and :partition/index must be set together")
-      (assert (pos-int? num-partitions)
-              "Invalid :partition/total - must be a positive integer")
-      (assert (<= num-partitions (count tests))
-              "Invalid :partition/total - cannot have more partitions than number of tests")
-      (assert (int? partition-index)
-              "Invalid :partition/index - must be an integer")
-      (assert (<= 0 partition-index (dec num-partitions))
-              (format "Invalid :partition/index - must be between 0 and %d" (dec num-partitions)))
-      (let [partitions (partition-all-into-n-partitions num-partitions tests)
-            partition  (nth partitions partition-index)]
-        (printf "Running tests in partition %d of %d (%d tests of %d)...\n"
-                (inc partition-index)
-                num-partitions
-                (count partition)
-                (count tests))
-        partition))
-    tests))
-
 (defn find-tests-with-options
   "Find tests using the options map as passed to `clojure -X`."
   [{:keys [only], :as options}]
@@ -170,7 +129,7 @@
     (println "Running tests in" (pr-str only)))
   (let [start-time-ms (System/currentTimeMillis)
         tests         (-> (find-tests only options)
-                          (partition-tests options))]
+                          (hawk.partition/partition-tests options))]
     (printf "Finding tests took %s.\n" (u/format-milliseconds (- (System/currentTimeMillis) start-time-ms)))
     (println "Running" (count tests) "tests")
     tests))
