@@ -58,3 +58,24 @@
     {:exclude-tags [:exclude-this-test]}
     {:exclude-tags #{:exclude-this-test}}
     {:exclude-tags [:exclude-this-test :another/tag]}))
+
+(deftest only-tags-test
+  (are [options] (= []
+                    (hawk/find-tests this-ns options))
+    {:only-tags [:another/tag]}
+    {:only-tags [:another/tag :exclude-tags-test]}
+    {:only-tags [:another/tag :exclude-this-test]})
+  (are [options] (= (hawk/find-tests this-ns {})
+                    (hawk/find-tests this-ns options))
+    {:only-tags [:exclude-tags-test]}
+    {:only-tags #{:exclude-tags-test}})
+  (are [options] (= [#'find-tests-test]
+                    (hawk/find-tests this-ns options))
+    {:only-tags [:exclude-this-test]}
+    {:only-tags #{:exclude-this-test}}
+    {:only-tags [:exclude-this-test :exclude-tags-test]}
+    {:only-tags #{:exclude-this-test :exclude-tags-test}})
+  (are [options] (= [#'find-tests-test]
+                    (hawk/find-tests this-ns options))
+    {:only-tags [:exclude-this-test]}
+    {:only-tags #{:exclude-this-test}}))

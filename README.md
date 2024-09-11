@@ -153,7 +153,7 @@ please submit a PR.
    :exec-args {:exclude-directories ["src" "resources" "shared/src"]}}}}
 ```
 
-## Skipping namespaces
+## Skipping namespaces or vars with tags
 
 You can optionally exclude tests in namespaces with certain tags by specifying the `:exclude-tags` option:
 
@@ -177,7 +177,30 @@ And adding it to namespaces like
   ...)
 ```
 
-Currently only supported on namespaces! It would be nice to support this on individual tests as well -- PRs are welcome!
+## Only running tests against namespaces or vars with tags
+
+The opposite of `:exclude-tags` -- you can only run tests against a certain set of tags with `:only-tags`. If multiple
+`:only-tags` are specified, only namespaces or vars that have all of those tags will be run.
+
+`:only-tags` can be combined with `:only` and/or `:exclude-tags`.
+
+```
+clj -X:test :only-tags [:my-project/e2e-test]
+```
+
+will only run tests in namespaces like
+
+```clj
+(ns ^:my-project/e2e-test my-namespace
+  ...)
+```
+
+or ones individually marked `:my-project/e2e-test` like
+
+```clj
+(deftest ^:my-project/e2e-test my-test
+  ...)
+```
 
 ## Whole-Suite Hooks
 

@@ -76,36 +76,40 @@
   [(or (resolve symb)
        (throw (ex-info (format "Unable to resolve test named %s" symb) {:test-symbol symb})))])
 
-(defn- excluded-tags
-  "Return the set of all tags in an element's metadata that are also in the `:exclude-tags` options."
-  [element options]
-  (when-let [excluded-tags (not-empty (set (:exclude-tags options)))]
-    (let [ns-tags (-> element meta keys set)]
-      (not-empty (set/intersection excluded-tags ns-tags)))))
-
-(defn- filter-tests-by-tag
-  "Filter out the test cases with tags that are also in the `:exclude-tags` options."
-  [tests options]
-  (filter (fn [test]
-            (if-let [excluded-tags (not-empty (excluded-tags test options))]
-              (println (format
-                        "Skipping test `%s` due to excluded tag(s): %s"
-                        (:name (meta test))
-                        (->> excluded-tags sort (str/join ","))))
-              test))
-          tests))
+(defn- skip-by-tags?
+  "Whether we should skip a namespace or test var because it has tags in `:exclude-tags` or is missing tags in
+  `:only-tags`. Prints debug message as a side-effect."
+  [ns-or-var options]
+  (let [tags-set      (fn [ns-or-var]
+                        (not-empty (set (keys (meta ns-or-var)))))
+        excluded-tag? (when-let [exclude-tags (not-empty (set (:exclude-tags options)))]
+                        (when-let [disallowed-tags (not-empty (set/intersection exclude-tags (tags-set ns-or-var)))]
+                          (printf
+                           "Skipping `%s` due to excluded tag(s): %s\n"
+                           (if (var? ns-or-var)
+                             (:name (meta ns-or-var))
+                             (ns-name ns-or-var))
+                           (->> disallowed-tags sort (str/join ",")))
+                          true))
+        missing-tag?  (when (var? ns-or-var)
+                        (let [varr ns-or-var]
+                          (when-let [only-tags (not-empty (set (:only-tags options)))]
+                            (when-let [missing-tags (not-empty (set/difference only-tags
+                                                                               (tags-set (:ns (meta varr)))
+                                                                               (tags-set varr)))]
+                              (printf
+                               "Skipping `%s` due to missing only tag(s): %s\n"
+                               (:name (meta varr))
+                               (->> missing-tags sort (str/join ",")))
+                              true))))]
+    (or excluded-tag? missing-tag?)))
 
 (defn- find-tests-for-namespace-symbol
   [ns-symb options]
   (load-test-namespace ns-symb)
-  (if-let [excluded-tags (not-empty (excluded-tags (find-ns ns-symb) options))]
-    (println (format
-              "Skipping tests in `%s` due to excluded tag(s): %s"
-              ns-symb
-              (->> excluded-tags sort (str/join ","))))
-    (filter-tests-by-tag
-     (eftest.runner/find-tests ns-symb)
-     options)))
+  (when-not (skip-by-tags? (find-ns ns-symb) options)
+    (remove #(skip-by-tags? % options)
+            (eftest.runner/find-tests ns-symb))))
 
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol
