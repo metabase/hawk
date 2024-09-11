@@ -58,6 +58,7 @@
     {:exclude-tags [:exclude-this-test]}
     {:exclude-tags #{:exclude-this-test}}
     {:exclude-tags [:exclude-this-test :another/tag]}))
+<<<<<<< support-only-tags -- Incoming Change
 
 (deftest only-tags-test
   (are [options] (= []
@@ -79,3 +80,5 @@
                     (hawk/find-tests this-ns options))
     {:only-tags [:exclude-this-test]}
     {:only-tags #{:exclude-this-test}}))
+=======
+>>>>>>> main -- Current Change
