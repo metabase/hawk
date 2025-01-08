@@ -83,25 +83,15 @@
   (let [tags-set      (fn [ns-or-var]
                         (not-empty (set (keys (meta ns-or-var)))))
         excluded-tag? (when-let [exclude-tags (not-empty (set (:exclude-tags options)))]
-                        (when-let [disallowed-tags (not-empty (set/intersection exclude-tags (tags-set ns-or-var)))]
-                          (printf
-                           "Skipping `%s` due to excluded tag(s): %s\n"
-                           (if (var? ns-or-var)
-                             (:name (meta ns-or-var))
-                             (ns-name ns-or-var))
-                           (->> disallowed-tags sort (str/join ",")))
-                          true))
+                        (when (not-empty (set/intersection exclude-tags (tags-set ns-or-var)))
+                          :exclude))
         missing-tag?  (when (var? ns-or-var)
                         (let [varr ns-or-var]
                           (when-let [only-tags (not-empty (set (:only-tags options)))]
-                            (when-let [missing-tags (not-empty (set/difference only-tags
-                                                                               (tags-set (:ns (meta varr)))
-                                                                               (tags-set varr)))]
-                              (printf
-                               "Skipping `%s` due to missing only tag(s): %s\n"
-                               (:name (meta varr))
-                               (->> missing-tags sort (str/join ",")))
-                              true))))]
+                            (when (not-empty (set/difference only-tags
+                                                             (tags-set (:ns (meta varr)))
+                                                             (tags-set varr)))
+                              :only))))]
     (or excluded-tag? missing-tag?)))
 
 (defn- find-tests-for-namespace-symbol
