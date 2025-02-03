@@ -2,16 +2,16 @@
  ["src" "resources"]
 
  :deps
- {commons-io/commons-io       {:mvn/version "2.11.0"}
+ {commons-io/commons-io       {:mvn/version "2.18.0"}
   eftest/eftest               {:mvn/version "0.6.0"}
   environ/environ             {:mvn/version "1.2.0"}
-  methodical/methodical       {:mvn/version "0.15.1"}
+  methodical/methodical       {:mvn/version "1.0.124"}
   pjstadig/humane-test-output {:mvn/version "0.11.0"}
   prismatic/schema            {:mvn/version "1.4.1"}
-  metosin/malli               {:mvn/version "0.13.0"}
-  org.clojure/algo.generic    {:mvn/version "0.1.3"}
-  org.clojure/java.classpath  {:mvn/version "1.0.0"}
-  org.clojure/tools.namespace {:mvn/version "1.3.0"}}
+  metosin/malli               {:mvn/version "0.17.0"}
+  org.clojure/algo.generic    {:mvn/version "1.0.1"}
+  org.clojure/java.classpath  {:mvn/version "1.1.0"}
+  org.clojure/tools.namespace {:mvn/version "1.5.0"}}
 
  :aliases
  {:dev
@@ -24,8 +24,8 @@
 
   ;; clojure -T:build
   :build
-  {:deps       {io.github.clojure/tools.build {:mvn/version "0.9.6"}
-                slipset/deps-deploy           {:mvn/version "0.2.1"}}
+  {:deps       {io.github.clojure/tools.build {:mvn/version "0.10.6"}
+                slipset/deps-deploy           {:mvn/version "0.2.2"}}
    :ns-default build}
 
   ;; clojure -M:kondo --lint src test
@@ -44,4 +44,9 @@
    ["-m" "clj-kondo.main"]}
 
   :ci
-  {:jvm-opts ["-Dhawk.mode" "cli/ci"]}}}
+  {:jvm-opts ["-Dhawk.mode" "cli/ci"]}
+
+  ;; Find outdated versions of dependencies. Run with `clojure -M:outdated`
+  :outdated {;; Note that it is `:deps`, not `:extra-deps`
+             :deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+             :main-opts ["-m" "antq.core" "--skip=github-action"]}}}
