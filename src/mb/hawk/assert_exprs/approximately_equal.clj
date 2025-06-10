@@ -1,7 +1,6 @@
 (ns mb.hawk.assert-exprs.approximately-equal
   "See documentation in `docs/approximately-equal.md`."
   (:require
-   [clojure.algo.generic.math-functions :as algo.generic.math]
    [clojure.pprint :as pprint]
    [malli.core :as m]
    [malli.error :as me]
@@ -213,11 +212,17 @@
    :prefix "(approx " :suffix ")"
    (pprint/write-out [(.expected this) (.epsilon this)])))
 
+(defn- approx=
+  "Return true if the absolute value of the difference between x and y is less than eps.
+   Simple replacement for algo.generic.math/approx="
+  [x y eps]
+  (< (Math/abs (- (double x) (double y))) (double eps)))
+
 (methodical/defmethod =?-diff [Approx Number]
   [^Approx this actual]
   (let [expected (.expected this)
         epsilon  (.epsilon this)]
-    (when-not (algo.generic.math/approx= expected actual epsilon)
+    (when-not (approx= expected actual epsilon)
       (list 'not (list 'approx expected actual (symbol "#_epsilon") epsilon)))))
 
 (deftype Same [k])
