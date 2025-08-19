@@ -94,11 +94,17 @@
                               :only))))]
     (or excluded-tag? missing-tag?)))
 
+(defn- ignored-var?
+  [v options]
+  (letfn [(var-name [v] (format "%s/%s" (-> v meta :ns ns-name) (-> v meta :name)))]
+    (contains? (-> options :ignored :vars) (var-name v))))
+
 (defn- find-tests-for-namespace-symbol
   [ns-symb options]
   (load-test-namespace ns-symb)
   (when-not (skip-by-tags? (find-ns ns-symb) options)
-    (remove #(skip-by-tags? % options)
+    (remove (some-fn #(skip-by-tags? % options)
+                     #(ignored-var? % options))
             (eftest.runner/find-tests ns-symb))))
 
 ;; a test namespace or individual test
@@ -216,11 +222,18 @@
              (printf "Starting test iteration #%d\n" i)
              (run-tests test-vars options)))))
 
+(defn- normalize-options
+  "Ensure that ignored vars are a set for quick membership checks."
+  [options]
+  (cond-> options
+    (-> options :ignored :vars seq) (update-in [:ignored :vars] set)))
+
 (defn- find-and-run-tests-with-options
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
   for full list of options."
   [options]
   (let [start-time-ms   (System/currentTimeMillis)
+        options         (normalize-options options)
         test-vars       (find-tests-with-options options)
         _               (hawk.hooks/before-run options)
         [summary fail?] (try
