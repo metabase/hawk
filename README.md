@@ -177,6 +177,23 @@ And adding it to namespaces like
   ...)
 ```
 
+## Skipping vars with options
+Sometimes you don't want to modify source to skip a few tests. You can easily specify to skip individual tests with:
+
+```clojure
+clj -X:dev:test :only metabase.util.queue-test :ignored '{:vars ["metabase.util.queue-test/bounded-transfer-queue-test" "metabase.util.queue-test/take-batch-test"]}'
+```
+
+This allows for exact matching on var names to prevent tests. A typical example might be a test that is failing due to a
+leap year. A typical fix might be someone prepares a patch, gets it through CI, and then all jobs hoping to pass CI must
+rebase on this change. An alternative is that some central store is updated with
+
+```json
+{"ignored": {"vars": ["some.ns/date-test"]}}
+```
+
+And then all of CI can carry on while you fix this. Once fixed, remove this var from the central store and continue.
+
 ## Only running tests against namespaces or vars with tags
 
 The opposite of `:exclude-tags` -- you can only run tests against a certain set of tags with `:only-tags`. If multiple

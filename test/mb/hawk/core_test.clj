@@ -1,7 +1,12 @@
 (ns ^:exclude-tags-test ^:mic/test mb.hawk.core-test
   (:require
+   [clojure.set :as set]
    [clojure.test :refer :all]
    [mb.hawk.core :as hawk]))
+
+(deftest simple
+  ;; need a test that already exists without moving them or circularity
+  (is (= 1 1)))
 
 (deftest ^:exclude-this-test find-tests-test
   (testing "symbol naming"
@@ -28,6 +33,22 @@
       (is (seq tests))
       (is (every? var? tests))
       (is (contains? (set tests) (resolve 'mb.hawk.core-test/find-tests-test)))))
+  (testing "ignore var options"
+    ;; note this is a set here. but that gets normalized and the cli can pass a sequence
+    (let [tests (set (hawk/find-tests nil {:ignored {:vars #{"mb.hawk.core-test/simple"}}}))
+          expected (into #{}
+                         (comp
+                          (keep (fn [[_l v]]
+                                  (when (and (-> v meta :test)
+                                             (not= (-> v meta :name) 'simple))
+                                    (symbol (format "%s/%s"
+                                                    (-> v meta :ns ns-name)
+                                                    (-> v meta :name))))))
+                          (map resolve))
+                         (ns-publics 'mb.hawk.core-test))]
+      (is (set/subset? expected tests))
+      (is (not (contains? tests #'mb.hawk.core-test/simple)))
+      (is (contains? tests #'mb.hawk.core-test/find-tests-test))))
   (testing "sequence"
     (let [tests (hawk/find-tests ['mb.hawk.assert-exprs-test
                                   'mb.hawk.assert-exprs-test/partial=-test
