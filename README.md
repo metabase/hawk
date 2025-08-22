@@ -8,7 +8,7 @@ It watches your code like a hawk! You like tests, right? Then run them with our 
 
 ```clj
 ;;; this is not necessarily up to date; use the latest SHA in GitHub
-{io.github.metabase/hawk {:sha "ca1775da999ed066947bd37ca5710167f4adecaa"}}
+{io.github.metabase/hawk {:sha "8813c2b0969e9f78025c267af0488c96792b35d1"}}
 ```
 
 Hawk is a Clojure-CLI friendly wrapper around [Eftest](https://github.com/weavejester/eftest) with some extra features
