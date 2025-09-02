@@ -12,6 +12,8 @@
     (is (=? 100 100)))
   (testing "predicate function"
     (is (=? int? 100)))
+  (testing "predicate function with nil"
+    (is (=? empty? nil)))
   (testing "regexes"
     (is (=? #"cans$" "cans")))
   (testing "classes"
@@ -36,15 +38,17 @@
           []))
   (is (=? [nil]
           [nil]))
+  (is (=? [nil?]
+          [nil]))
   (is (=? [1 nil 2]
           [1 nil 2]))
   (is (=? [:a int?]
           [:a 100]))
-  (testing "Should enforce that sequences are of the same length"
-    (is (= [nil nil (list 'not= nil? nil)]
-           (=?/=?-diff [int? string? nil?]
+  (testing "Should handle different lengths appropriately"
+    (is (= [nil nil (list 'not (list some? nil))]
+           (=?/=?-diff [int? string? some?]
                        [1 "two"])))
-    (is (= [nil nil (list 'not= nil? nil) (list 'not= nil "cans")]
+    (is (= [nil nil nil (list 'not= nil "cans")]
            (=?/=?-diff [int? string? nil?]
                        [1 "two" nil "cans"])))
     (testing "Differentiate between [1 2 nil] and [1 2]"
