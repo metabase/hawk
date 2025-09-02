@@ -77,6 +77,11 @@
   (when-not (pred actual)
     (list 'not (list pred actual))))
 
+(methodical/defmethod =?-diff [clojure.lang.AFunction nil]
+  [pred actual]
+  (when-not (pred actual)
+    (list 'not (list pred actual))))
+
 (methodical/defmethod =?-diff [clojure.lang.Sequential clojure.lang.Sequential]
   [expected actual]
   (let [same-size? (= (count expected)
