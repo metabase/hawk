@@ -6,6 +6,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.test :as t]
+   [clojure.tools.namespace.file :as ns.file]
    [clojure.tools.namespace.find :as ns.find]
    [eftest.report.pretty]
    [eftest.report.progress]
@@ -27,7 +28,7 @@
 ;;;; Finding tests
 
 (defmulti find-tests
-  "Find test vars in `arg`, which can be a string directory name, symbol naming a specific namespace or test, or a
+  "Find test vars in `arg`, which can be a string directory or file name, symbol naming a specific namespace or test, or a
   collection of one or more of the above."
   {:arglists '([arg options])}
   (fn [arg _options]
@@ -55,16 +56,26 @@
     (re-matches (re-pattern namespace-pattern) (name ns-symbol))
     true))
 
-;; directory
+;; directory or file
 (defmethod find-tests java.io.File
   [^java.io.File file {:keys [namespace-pattern exclude-directories], :as options}]
-  (when (and (.isDirectory file)
-             (not (str/includes? (str file) ".gitlibs/libs"))
-             (not (exclude-directory? file exclude-directories)))
-    (println "Looking for test namespaces in directory" (str file))
-    (->> (ns.find/find-namespaces-in-dir file)
-         (filter #(include-namespace? % namespace-pattern))
-         (mapcat #(find-tests % options)))))
+  (cond
+    ;; handle regular files
+    (.isFile file)
+    ;; almost exact code from `ns.find/find-namespaces-in-dir`
+    (let [[_ nom :as decl] (try (ns.file/read-file-ns-decl file)
+                                (catch Exception _ nil))]
+      (when (and decl nom (symbol? nom))
+        (find-tests nom options)))
+
+    ;; handle directories
+    (.isDirectory file)
+    (when (and (not (str/includes? (str file) ".gitlibs/libs"))
+               (not (exclude-directory? file exclude-directories)))
+      (println "Looking for test namespaces in directory" (str file))
+      (->> (ns.find/find-namespaces-in-dir file)
+           (filter #(include-namespace? % namespace-pattern))
+           (mapcat #(find-tests % options))))))
 
 (defn- load-test-namespace [ns-symb]
   (binding [hawk.init/*test-namespace-being-loaded* ns-symb]
