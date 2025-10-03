@@ -37,7 +37,8 @@ how different EDN forms are interpreted as our test runner:
 | --- | --- | --- |
 | Unqualified Symbol | `my.namespace-test` | Run all tests in this namespace |
 | Qualified Symbol | `my.namespace-test/my-test` | Run one specific test |
-| String | `'"test/metabase/api"'` | Run all tests in test namespaces in this directory (including subdirectories) |
+| String (directory) | `'"test/metabase/api"'` | Run all tests in test namespaces in this directory (including subdirectories) |
+| String (file) | `'"test/metabase/api/user_test.clj"'` | Run all tests in this specific test file |
 | Vector of symbols/strings | `'[my.namespace "test/metabase/some_directory"]'` | Union of tests found by the individual items in the vector |
 
 ### Example commands:
@@ -47,6 +48,7 @@ how different EDN forms are interpreted as our test runner:
 | Run tests in a specific namespace | `clojure -X:test :only my.namespace-test` |
 | Run a specific test | `clojure -X:test :only my.namespace-test/my-test` |
 | Run tests in a specific directory (including subdirectories) | `clojure -X:test :only '"test/metabase/api"'` |
+| Run tests in a specific file | `clojure -X:test :only '"test/metabase/api/user_test.clj"'` |
 | Run tests in 2 namespaces | `clojure -X:test :only '[my.namespace-test my.other.namespace-test]'` |
 
 

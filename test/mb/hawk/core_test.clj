@@ -100,3 +100,14 @@
                     (hawk/find-tests this-ns options))
     {:only-tags [:exclude-this-test]}
     {:only-tags #{:exclude-this-test}}))
+
+(deftest only-test
+  (testing "Can find tests when supplied a namespace"
+    (is (some #{#'only-test}
+              (hawk/find-tests 'mb.hawk.core-test nil))))
+  (testing "Can find tests when supplied a dir"
+    (is (some #{#'only-test}
+              (hawk/find-tests "test/mb/hawk" nil))))
+  (testing "Can find tests when supplied a file path"
+    (is (some #{#'only-test}
+              (hawk/find-tests "test/mb/hawk/core_test.clj" nil)))))
