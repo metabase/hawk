@@ -1,6 +1,8 @@
 (ns mb.hawk.speak
   (:require [clojure.java.shell :as sh]))
 
+(set! *warn-on-reflection* true)
+
 (defmulti handle-event!
   "Handles a test event by speaking(!?) it if appropriate"
   :type)

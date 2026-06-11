@@ -11,6 +11,8 @@
    (javax.xml.stream XMLOutputFactory XMLStreamWriter)
    (org.apache.commons.io FileUtils)))
 
+(set! *warn-on-reflection* true)
+
 (def ^String ^:private output-dir "target/junit")
 
 (defn clean-output-dir!
@@ -189,13 +191,15 @@
   "Submit a background thread task to write the JUnit output for the tests in a namespace when an `:end-test-ns` event
   is encountered."
   [result]
-  (let [^Callable thunk (fn []
-                          (write-ns-result!* result))]
-    (.submit ^ThreadPoolExecutor @thread-pool thunk)))
+  (when @thread-pool
+    (let [^Callable thunk (fn []
+                            (write-ns-result!* result))]
+      (.submit ^ThreadPoolExecutor @thread-pool thunk))))
 
 (defn wait-for-writes-to-finish
   "Wait up to 10 seconds for the thread pool that writes results to finish."
   []
-  (.shutdown ^ThreadPoolExecutor @thread-pool)
-  (.awaitTermination ^ThreadPoolExecutor @thread-pool 10 TimeUnit/SECONDS)
-  (reset! thread-pool nil))
+  (when @thread-pool
+    (.shutdown ^ThreadPoolExecutor @thread-pool)
+    (.awaitTermination ^ThreadPoolExecutor @thread-pool 10 TimeUnit/SECONDS)
+    (reset! thread-pool nil)))

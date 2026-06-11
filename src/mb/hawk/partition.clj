@@ -57,10 +57,10 @@
   For most namespaces there should only be one possible partition but for some the ideal split happens in the middle of
   the namespace which means we have two possible candidate partitions to put it into."
   [num-partitions test-vars]
-  (let [test-var->ideal-partition (test-var->ideal-partition num-partitions test-vars)]
+  (let [var->ideal-partition (test-var->ideal-partition num-partitions test-vars)]
     (reduce
      (fn [m test-var]
-       (update m (namespace* test-var) #(conj (set %) (test-var->ideal-partition test-var))))
+       (update m (namespace* test-var) #(conj (set %) (var->ideal-partition test-var))))
      {}
      test-vars)))
 
@@ -71,26 +71,26 @@
 
   If there are multiple possible candidate partitions for a namespace, choose the one that has the least tests in it."
   [num-partitions test-vars]
-  (let [namespace->num-tests           (namespace->num-tests test-vars)
-        namespace->possible-partitions (namespace->possible-partitions num-partitions test-vars)
+  (let [ns->num-tests                 (namespace->num-tests test-vars)
+        ns->possible-partitions       (namespace->possible-partitions num-partitions test-vars)
         ;; process all the namespaces that have no question about what partition they should go into first so we have as
         ;; accurate a picture of the size of each partition as possible before dealing with the ambiguous ones
         namespaces                    (distinct (map namespace* test-vars))
         multiple-possible-partitions? (fn [nmspace]
-                                        (> (count (namespace->possible-partitions nmspace))
+                                        (> (count (ns->possible-partitions nmspace))
                                            1))
-        namespaces                     (concat (remove multiple-possible-partitions? namespaces)
-                                               (filter multiple-possible-partitions? namespaces))]
+        namespaces                    (concat (remove multiple-possible-partitions? namespaces)
+                                              (filter multiple-possible-partitions? namespaces))]
     ;; Keep track of how many tests are in each partition so far
     (:namespace->partition
      (reduce
       (fn [m nmspace]
-        (let [partition (first (sort-by (fn [partition]
-                                          (get-in m [:partition->size partition]))
-                                        (namespace->possible-partitions nmspace)))]
+        (let [part (first (sort-by (fn [part]
+                                     (get-in m [:partition->size part]))
+                                   (ns->possible-partitions nmspace)))]
           (-> m
-              (update-in [:partition->size partition] (fnil + 0) (namespace->num-tests nmspace))
-              (assoc-in [:namespace->partition nmspace] partition))))
+              (update-in [:partition->size part] (fnil + 0) (ns->num-tests nmspace))
+              (assoc-in [:namespace->partition nmspace] part))))
       {}
       namespaces))))
 
@@ -99,9 +99,9 @@
 
     (f test-var) => partititon-number"
   [num-partitions test-vars]
-  (let [namespace->partition (namespace->partition num-partitions test-vars)]
+  (let [ns->partition (namespace->partition num-partitions test-vars)]
     (fn test-var->partition [test-var]
-      (get namespace->partition (namespace* test-var)))))
+      (get ns->partition (namespace* test-var)))))
 
 (defn- partition-tests-into-n-partitions
   "Split a sequence of `test-vars` into `num-partitions`, returning a map of
@@ -140,11 +140,11 @@
     (do
       (validate-partition-options tests options)
       (let [partition-index->tests (partition-tests-into-n-partitions num-partitions tests)
-            partition              (get partition-index->tests partition-index)]
+            part                   (get partition-index->tests partition-index)]
         (printf "Running tests in partition %d of %d (%d tests of %d)...\n"
                 (inc partition-index)
                 num-partitions
-                (count partition)
+                (count part)
                 (count tests))
-        partition))
+        part))
     tests))

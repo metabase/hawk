@@ -2,17 +2,61 @@
  ["../resources/clj-kondo.exports/com.github.metabase/hawk"]
 
  :linters
- {:docstring-leading-trailing-whitespace {:level :warning}
+ {:aliased-namespace-symbol              {:level :warning}
+  :case-symbol-test                      {:level :warning}
+  :condition-always-true                 {:level :warning}
+  :def-fn                                {:level :warning}
+  :docstring-leading-trailing-whitespace {:level :warning}
+  :dynamic-var-not-earmuffed             {:level :warning}
+  :equals-expected-position              {:level :warning, :only-in-test-assertion true}
+  :equals-true                           {:level :warning}
+  :keyword-binding                       {:level :warning}
+  :main-without-gen-class                {:level :warning}
+  :minus-one                             {:level :warning}
+  :misplaced-docstring                   {:level :warning}
+  :missing-body-in-when                  {:level :warning}
   :missing-docstring                     {:level :warning}
+  :missing-else-branch                   {:level :warning}
+  :namespace-name-mismatch               {:level :warning}
+  :non-arg-vec-return-type-hint          {:level :warning}
+  :plus-one                              {:level :warning}
+  :reduce-without-init                   {:level :warning}
+  :redundant-call                        {:level :warning}
+  :redundant-fn-wrapper                  {:level :warning}
+  :redundant-str-call                    {:level :warning}
+  :self-requiring-namespace              {:level :warning}
+  :shadowed-var                          {:level :warning}
+  :single-key-in                         {:level :warning}
+  :unsorted-imports                      {:level :warning}
   :unsorted-required-namespaces          {:level :warning}
+  :unused-alias                          {:level :warning}
+  :use                                   {:level :warning}
+  :used-underscored-binding              {:level :warning}
+  :warn-on-reflection                    {:level :warning}
 
   :refer-all
   {:level   :warning
    :exclude [clojure.test]}
 
+  :unresolved-var
+  {:exclude [io.aviso.ansi]}
+
   :consistent-alias
   {:aliases
-   {methodical.core methodical}}}
+   {methodical.core methodical}}
+
+;;; disabled linters
+
+  :redundant-ignore {:level :off}}      ; false positives
 
  :config-in-comment
- {:linters {:unresolved-symbol {:level :off}}}}
+ {:linters {:unresolved-symbol {:level :off}}}
+
+ :ns-groups
+ [{:pattern "^mb\\.eftest\\..*$"
+   :name    eftest-namespaces}]
+
+ :config-in-ns
+ {eftest-namespaces
+  {:linters
+   {:missing-docstring {:level :off}}}}}

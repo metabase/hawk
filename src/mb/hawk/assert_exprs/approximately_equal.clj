@@ -145,8 +145,8 @@
 
 (defn schema
   "Used inside a =? expression. Compares things to a schema.core schema."
-  [schema]
-  (->Schema schema))
+  [a-schema]
+  (->Schema a-schema))
 
 (defmethod print-method Schema
   [this writer]
@@ -166,12 +166,12 @@
   [^Schema this actual]
   (s/check (.schema this) actual))
 
-(deftype Malli [schema])
+(deftype Malli [#_{:clj-kondo/ignore [:shadowed-var]} schema])
 
 (defn malli
   "Used inside a =? expression. Compares things to a malli schema."
-  [schema]
-  (->Malli schema))
+  [malli-schema]
+  (->Malli malli-schema))
 
 (defmethod print-dup Malli
   [^Malli this ^java.io.Writer writer]

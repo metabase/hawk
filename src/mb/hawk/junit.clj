@@ -3,6 +3,8 @@
    [clojure.test :as t]
    [mb.hawk.junit.write :as write]))
 
+(set! *warn-on-reflection* true)
+
 (defmulti ^:private handle-event!*
   {:arglists '([event])}
   :type)
@@ -87,9 +89,9 @@
   (let [event (assoc event :testing-contexts (vec t/*testing-contexts*))]
     (alter-meta! test-var update ::context
                  (fn [context]
-                   (-> context
-                       (update :assertion-count inc)
-                       (update :results conj event))))))
+                   (some-> context
+                           (update :assertion-count inc)
+                           (update :results conj event))))))
 
 (defmethod handle-event!* :pass
   [event]
