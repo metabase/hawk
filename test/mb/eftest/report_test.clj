@@ -21,7 +21,7 @@
                                      :file "report_test.clj"
                                      :line 999
                                      :message "foo"}))))]
-    (is (= (str "\nFAIL in eftest.report-test/file-and-line-in-pretty-fail-report"
+    (is (= (str "\nFAIL in mb.eftest.report-test/file-and-line-in-pretty-fail-report"
                 " (report_test.clj:999)\n"
                 "foo\n"
                 "expected: "

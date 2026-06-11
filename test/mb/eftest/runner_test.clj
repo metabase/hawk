@@ -29,7 +29,7 @@
 
 (deftest test-reporting
   (let [out (:output (test-run-tests 'mb.eftest.test-ns.single-failing-test))]
-    (is (re-find #"FAIL in eftest.test-ns.single-failing-test/single-failing-test" out))
+    (is (re-find #"FAIL in mb\.eftest\.test-ns\.single-failing-test/single-failing-test" out))
     (is (not (re-find #"IllegalArgumentException" out)))))
 
 (deftest test-fail-fast
@@ -53,4 +53,4 @@
   (testing "should fail with an accurate var location"
     (let [out (:output
                 (test-run-tests ['mb.eftest.test-ns.slow-test] {:test-warn-time 5}))]
-      (is (re-find #"LONG TEST in eftest.test-ns.slow-test/a-slow-test\n" out)))))
+      (is (re-find #"LONG TEST in mb\.eftest\.test-ns\.slow-test/a-slow-test\n" out)))))
