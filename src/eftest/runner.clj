@@ -1,9 +1,7 @@
 (ns eftest.runner
   "Functions to run tests written with clojure.test or compatible libraries."
   (:require
-   [clojure.java.io :as io]
    [clojure.test :as test]
-   [clojure.tools.namespace.find :as find]
    [eftest.output-capture :as capture]
    [eftest.report :as report]
    [eftest.report.progress :as progress]
@@ -12,6 +10,8 @@
    (java.util.concurrent Executors ExecutorService)))
 
 (defmethod test/report :begin-test-run [_])
+
+;; deterministic shuffle stuff is disabled for now since it breaks too much stuff in Metabase.
 
 #_(defn- deterministic-shuffle [seed ^java.util.Collection coll]
   (let [al (java.util.ArrayList. coll)
@@ -148,38 +148,8 @@
          (finally (when (realized? executor)
                     (.shutdownNow @executor))))))
 
-(defn- require-namespaces-in-dir [dir]
-  (map (fn [ns] (require ns) (find-ns ns)) (find/find-namespaces-in-dir dir)))
-
-(defn- find-tests-in-namespace [ns]
+(defn find-tests-in-namespace [ns]
   (->> ns ns-interns vals (filter (comp :test meta))))
-
-(defn- find-tests-in-dir [dir]
-  (mapcat find-tests-in-namespace (require-namespaces-in-dir dir)))
-
-(defmulti find-tests
-  "Find test vars specified by a source. The source may be a var, symbol
-  namespace or directory path, or a collection of any of the previous types."
-  {:arglists '([source])}
-  type)
-
-(defmethod find-tests clojure.lang.IPersistentCollection [coll]
-  (mapcat find-tests coll))
-
-(defmethod find-tests clojure.lang.Namespace [ns]
-  (find-tests-in-namespace ns))
-
-(defmethod find-tests clojure.lang.Symbol [sym]
-  (if (namespace sym) (find-tests (find-var sym)) (find-tests-in-namespace sym)))
-
-(defmethod find-tests clojure.lang.Var [var]
-  (when (-> var meta :test) (list var)))
-
-(defmethod find-tests java.io.File [dir]
-  (find-tests-in-dir dir))
-
-(defmethod find-tests java.lang.String [dir]
-  (find-tests-in-dir (io/file dir)))
 
 (defn run-tests
   "Run the supplied test vars. Accepts the following options:

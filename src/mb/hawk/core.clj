@@ -116,7 +116,7 @@
   (when-not (skip-by-tags? (find-ns ns-symb) options)
     (remove (some-fn #(skip-by-tags? % options)
                      #(ignored-var? % options))
-            (eftest.runner/find-tests ns-symb))))
+            (eftest.runner/find-tests-in-namespace ns-symb))))
 
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol

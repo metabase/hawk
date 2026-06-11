@@ -1,7 +1,8 @@
 (ns eftest.runner-test
   (:require
    [clojure.test :refer :all]
-   [eftest.runner :as sut]))
+   [eftest.runner :as sut]
+   [mb.hawk.core :as hawk.core]))
 
 (in-ns 'eftest.test-ns.single-failing-test)
 (clojure.core/refer-clojure)
@@ -40,7 +41,7 @@
   ([test-locs]
    (test-run-tests test-locs {}))
   ([test-locs opts]
-   (let [vars (sut/find-tests test-locs)
+   (let [vars (hawk.core/find-tests test-locs)
          ret  (promise)
          out  (with-test-out-str (deliver ret (sut/run-tests vars opts)))]
      {:output out
