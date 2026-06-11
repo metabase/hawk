@@ -19,7 +19,9 @@
    [mb.hawk.parallel :as hawk.parallel]
    [mb.hawk.partition :as hawk.partition]
    [mb.hawk.speak :as hawk.speak]
-   [mb.hawk.util :as u]))
+   [mb.hawk.util :as u])
+  (:import
+   (java.io StringWriter Writer)))
 
 (set! *warn-on-reflection* true)
 
@@ -152,6 +154,86 @@
 (def ^:private ^:dynamic *parallel-test-counter*
   nil)
 
+(def ^:private ^:dynamic *after-each-options*
+  "Bound to the test run options when at least one [[mb.hawk.hooks/after-each]] hook is registered, and `nil`
+  otherwise. Capturing per-test output and report events only happens when this is non-nil, so runs without after-each
+  hooks pay no overhead."
+  nil)
+
+(defn- tee-writer
+  "Returns a Writer that forwards everything written to it to both `primary` and `copy`. Closing it flushes both but
+  closes neither."
+  ^Writer [^Writer primary ^Writer copy]
+  (proxy [Writer] []
+    (write
+      ([x]
+       (cond
+         (integer? x) (do (.write primary (int x))
+                          (.write copy (int x)))
+         (string? x)  (do (.write primary ^String x)
+                          (.write copy ^String x))
+         :else        (do (.write primary ^chars x)
+                          (.write copy ^chars x))))
+      ([x off len]
+       (if (string? x)
+         (do (.write primary ^String x (int off) (int len))
+             (.write copy ^String x (int off) (int len)))
+         (do (.write primary ^chars x (int off) (int len))
+             (.write copy ^chars x (int off) (int len))))))
+    (flush []
+      (.flush primary)
+      (.flush copy))
+    (close []
+      (.flush primary)
+      (.flush copy))))
+
+(defn- run-test-with-after-each-hooks
+  "Run `test-var`, capturing its [[clojure.test]] report events and `*out*`/`*err*` output, then invoke
+  any [[hawk.hooks/after-each]] hooks with the run `options` and a context map describing the test that just ran.
+
+  The hooks are run as the test var's reporting window closes -- right before its `:end-test-var` event reaches the
+  real reporter -- rather than after [[orig-test-var]] returns. This matters: a hook exception (or a `clojure.test`
+  assertion inside a hook) is reported as a `clojure.test` error while `test-var` is still the var being reported on,
+  so it is counted and attributed to `test-var` everywhere, including in the JUnit output (which finalizes a test
+  var's results when it sees `:end-test-var`)."
+  [options test-var]
+  (let [events      (atom [])
+        buf         (StringWriter.)
+        orig-report t/report
+        start-ns    (System/nanoTime)
+        run-hooks!  (fn []
+                      (let [duration-ms (/ (- (System/nanoTime) start-ns) 1e6)
+                            summary     (merge {:pass 0, :fail 0, :error 0}
+                                               (select-keys (frequencies (map :type @events))
+                                                            [:pass :fail :error]))]
+                        ;; bind t/report back to the real reporter so anything the hook reports (including the
+                        ;; hook-error event below) goes straight through instead of being recaptured into `events`
+                        (binding [t/report orig-report]
+                          (try
+                            (hawk.hooks/after-each options {:var           test-var
+                                                            :ns            (:ns (meta test-var))
+                                                            :report-events @events
+                                                            :output        (str buf)
+                                                            :summary       summary
+                                                            :duration-ms   duration-ms
+                                                            :parallel?     hawk.parallel/*parallel?*})
+                            (catch Throwable e
+                              (orig-report {:type     :error
+                                            :var      test-var
+                                            :message  (format "Error in after-each hook for %s" test-var)
+                                            :expected nil
+                                            :actual   e}))))))]
+    (binding [t/report (fn [event]
+                         (swap! events conj (assoc event :testing-contexts t/*testing-contexts*))
+                         ;; run hooks while the var's reporting window is still open (before :end-test-var is
+                         ;; forwarded), so hook errors are attributed to this var
+                         (when (= (:type event) :end-test-var)
+                           (run-hooks!))
+                         (orig-report event))
+              *out*     (tee-writer *out* buf)
+              *err*     (tee-writer *err* buf)]
+      (orig-test-var test-var))))
+
 (defn run-test
   "Run a single test `test-var`. Wraps/replaces [[clojure.test/test-var]]."
   [test-var]
@@ -161,7 +243,9 @@
                                              :parallel
                                              :single-threaded)
                                            (fnil inc 0)))
-    (orig-test-var test-var)))
+    (if-let [options *after-each-options*]
+      (run-test-with-after-each-hooks options test-var)
+      (orig-test-var test-var))))
 
 (alter-var-root #'t/test-var (constantly run-test))
 
@@ -203,7 +287,11 @@
                         options)]
      (when-not (every? var? test-vars)
        (throw (ex-info "Invalid test vars" {:test-vars test-vars, :options options})))
-     (binding [*parallel-test-counter* (atom {})]
+     (binding [*parallel-test-counter* (atom {})
+               ;; check for after-each hooks once per run rather than once per test; eftest conveys these bindings
+               ;; to its worker threads
+               *after-each-options*    (when (hawk.hooks/after-each-hooks-registered?)
+                                         options)]
        (merge
         (mb.eftest.runner/run-tests
          test-vars

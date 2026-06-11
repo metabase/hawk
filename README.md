@@ -246,6 +246,42 @@ they live in is loaded; this may be affected by `:only` options passed to the te
 
 Return values of methods are ignored; they are done purely for side effects.
 
+## Per-Test Hooks
+
+You can run arbitrary code after each individual test finishes with an `after-each` hook:
+
+```clj
+(methodical/defmethod mb.hawk.hooks/after-each ::my-hook
+  [options context]
+  (record-test-info! context))
+```
+
+`options` are the same options passed to the test runner as a whole, just like for `before-run`/`after-run`.
+`context` is a map describing the test that just ran:
+
+| Key | Description |
+| --- | --- |
+| `:var` | the test var that just ran |
+| `:ns` | the namespace of the test var |
+| `:report-events` | all `clojure.test` report event maps emitted during the test (`:pass`, `:fail`, `:error`, `:begin-test-var`, `:end-test-var`, ...), in order. Each event additionally has `:testing-contexts` assoc'ed onto it: the value of `clojure.test/*testing-contexts*` (innermost first) at the moment the event was emitted |
+| `:output` | everything the test wrote to `*out*` or `*err*`, as a string. Output is captured with a tee, so it still shows up in the normal test output too |
+| `:summary` | map of `:pass`/`:fail`/`:error` counts for this test var |
+| `:duration-ms` | wall-clock time the test var took, in milliseconds |
+| `:parallel?` | whether the test is a `^:parallel` test (and so may run concurrently with other tests) |
+
+Hooks run after the test var itself completes but before its `:each` fixtures finish, and run on the same thread as
+the test, so for `^:parallel` tests hooks may run concurrently. If a hook throws (or a `clojure.test` assertion inside
+it fails), it is reported as a test error/failure attributed to that test var -- it will fail the test suite and show
+up in the JUnit output. Hooks only run for test vars that actually run: a var skipped because its `:each` fixture threw,
+or because an earlier failure tripped `:fail-fast?`, does not fire after-each hooks.
+
+Capturing test output and report events is skipped entirely when no `after-each` hooks are registered -- whether any
+hooks are registered is checked once at the start of each test run -- so test runs without hooks pay no overhead.
+
+The same caveats as for whole-suite hooks apply: dispatch values just need to be unique, hook order is indeterminate,
+hooks only run if the namespace they live in gets loaded, and return values are ignored. There is no default
+`after-each` method (it would run once per test); register at least one hook to enable the feature.
+
 ## Partitioning tests
 
 You can divide a test suite into multiple partitions using the `:partition/total` and `:partition/index` keys. This is
