@@ -1,16 +1,16 @@
-(ns eftest.report.pretty
+(ns mb.eftest.report.pretty
   "A test reporter with an emphasis on pretty formatting."
   (:refer-clojure :exclude [test])
   (:require
    [clojure.data :as data]
    [clojure.string :as str]
    [clojure.test :as test]
-   [eftest.output-capture :as capture]
-   [eftest.report :as report]
    [fipp.engine :as fipp]
    [io.aviso.ansi :as ansi]
    [io.aviso.exception :as exception]
    [io.aviso.repl :as repl]
+   [mb.eftest.output-capture :as capture]
+   [mb.eftest.report :as report]
    [puget.printer :as puget]))
 
 (def ^:dynamic *fonts*

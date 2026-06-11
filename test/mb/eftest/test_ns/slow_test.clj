@@ -1,4 +1,4 @@
-(ns ^:hawk.tests/skip eftest.test-ns.slow-test
+(ns ^:hawk.tests/skip mb.eftest.test-ns.slow-test
   (:require
    [clojure.test :refer :all]))
 

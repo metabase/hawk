@@ -1,9 +1,9 @@
-(ns eftest.report-test
+(ns mb.eftest.report-test
   (:require
    [clojure.test :refer :all]
-   [eftest.output-capture :as output-capture]
-   [eftest.report :as report]
-   [eftest.report.pretty :as pretty]
+   [mb.eftest.output-capture :as output-capture]
+   [mb.eftest.report :as report]
+   [mb.eftest.report.pretty :as pretty]
    [puget.printer :as puget]))
 
 (def ^:private this-ns *ns*)

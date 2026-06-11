@@ -8,10 +8,10 @@
    [clojure.test :as t]
    [clojure.tools.namespace.file :as ns.file]
    [clojure.tools.namespace.find :as ns.find]
-   [eftest.report.pretty]
-   [eftest.report.progress]
-   [eftest.runner]
    [environ.core :as env]
+   [mb.eftest.report.pretty]
+   [mb.eftest.report.progress]
+   [mb.eftest.runner]
    [mb.hawk.assert-exprs]
    [mb.hawk.hooks :as hawk.hooks]
    [mb.hawk.init :as hawk.init]
@@ -116,7 +116,7 @@
   (when-not (skip-by-tags? (find-ns ns-symb) options)
     (remove (some-fn #(skip-by-tags? % options)
                      #(ignored-var? % options))
-            (eftest.runner/find-tests-in-namespace ns-symb))))
+            (mb.eftest.runner/find-tests-in-namespace ns-symb))))
 
 ;; a test namespace or individual test
 (defmethod find-tests clojure.lang.Symbol
@@ -170,8 +170,8 @@
   for every [[clojure.test]] event, including stuff like `:begin-test-run`, `:end-test-var`, and `:fail`."
   [options]
   (let [stdout-reporter (case (:mode options)
-                          (:cli/ci :repl) eftest.report.pretty/report
-                          :cli/local      eftest.report.progress/report)]
+                          (:cli/ci :repl) mb.eftest.report.pretty/report
+                          :cli/local      mb.eftest.report.progress/report)]
     (fn handle-event [event]
       (hawk.junit/handle-event! event)
       (hawk.speak/handle-event! event)
@@ -186,7 +186,7 @@
     :cli/ci))
 
 (defn run-tests
-  "Run `test-vars` with `options`, which are passed directly to [[eftest.runner/run-tests]].
+  "Run `test-vars` with `options`, which are passed directly to [[mb.eftest.runner/run-tests]].
 
   To run tests from the REPL, use this function.
 
@@ -205,7 +205,7 @@
        (throw (ex-info "Invalid test vars" {:test-vars test-vars, :options options})))
      (binding [*parallel-test-counter* (atom {})]
        (merge
-        (eftest.runner/run-tests
+        (mb.eftest.runner/run-tests
          test-vars
          (merge
           {:capture-output? false

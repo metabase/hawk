@@ -1,4 +1,4 @@
-(ns eftest.report
+(ns mb.eftest.report
   (:require
    [clojure.java.io :as io]
    [clojure.test :refer [*test-out*]]))
@@ -25,7 +25,7 @@
       (when (= (:type m) :begin-test-run)
         (io/make-parents (io/file output-file))
         (swap! *context* assoc-in output-key (io/writer output-file)))
-      (let [writer (get-in @*context* output-key)]
+      (let [^java.io.Writer writer (get-in @*context* output-key)]
         (binding [*test-out* writer]
           (report m))
         (when (= (:type m) :summary)

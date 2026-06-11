@@ -1,10 +1,10 @@
-(ns eftest.runner
+(ns mb.eftest.runner
   "Functions to run tests written with clojure.test or compatible libraries."
   (:require
    [clojure.test :as test]
-   [eftest.output-capture :as capture]
-   [eftest.report :as report]
-   [eftest.report.progress :as progress]
+   [mb.eftest.output-capture :as capture]
+   [mb.eftest.report :as report]
+   [mb.eftest.report.progress :as progress]
    [mb.hawk.parallel :as hawk.parallel])
   (:import
    (java.util.concurrent Executors ExecutorService)))
@@ -65,11 +65,11 @@
   ^ExecutorService [{:keys [thread-count] :or {thread-count (default-thread-count)}}]
   (Executors/newFixedThreadPool thread-count))
 
-(defn- pcalls* [executor fs]
+(defn- pcalls* [^ExecutorService executor fs]
   (->> fs
        (map #(.submit executor (bound-callback %)))
        (doall)
-       (map #(.get %))
+       (map #(.get ^java.util.concurrent.Future %))
        (doall)))
 
 (defn- pmap* [executor f xs]
@@ -148,7 +148,7 @@
            (capture/with-capture (f))
            (f))
          (finally (when (realized? executor)
-                    (.shutdownNow @executor))))))
+                    (.shutdownNow ^ExecutorService @executor))))))
 
 (defn find-tests-in-namespace [namespac]
   (->> namespac ns-interns vals (filter (comp :test meta))))

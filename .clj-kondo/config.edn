@@ -53,7 +53,7 @@
  {:linters {:unresolved-symbol {:level :off}}}
 
  :ns-groups
- [{:pattern "^eftest\\..*$"
+ [{:pattern "^mb\\.eftest\\..*$"
    :name    eftest-namespaces}]
 
  :config-in-ns

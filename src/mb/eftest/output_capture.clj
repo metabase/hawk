@@ -1,10 +1,10 @@
-(ns eftest.output-capture
+(ns mb.eftest.output-capture
   (:import
    (java.io ByteArrayOutputStream OutputStream PrintStream PrintWriter)))
 
 (set! *warn-on-reflection* true)
 
-(def ^:dynamic *test-buffer* nil)
+(def ^:dynamic ^ByteArrayOutputStream *test-buffer* nil)
 
 (defn read-test-buffer []
   (some-> *test-buffer* (.toByteArray) (String.)))
@@ -29,10 +29,10 @@
     (write
       ([data]
        (if (instance? Integer data)
-         (doto-capture-buffer #(.write % ^int data))
-         (doto-capture-buffer #(.write % ^bytes data 0 (alength ^bytes data)))))
+         (doto-capture-buffer #(.write ^OutputStream % ^int data))
+         (doto-capture-buffer #(.write ^OutputStream % ^bytes data 0 (alength ^bytes data)))))
       ([data off len]
-       (doto-capture-buffer #(.write % data off len))))))
+       (doto-capture-buffer #(.write ^OutputStream % data off len))))))
 
 (defn init-capture []
   (let [old-out             System/out
