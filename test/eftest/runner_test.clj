@@ -4,28 +4,6 @@
    [eftest.runner :as sut]
    [mb.hawk.core :as hawk.core]))
 
-(in-ns 'eftest.test-ns.single-failing-test)
-(clojure.core/refer-clojure)
-#_{:clj-kondo/ignore [:duplicate-require]}
-(clojure.core/require 'clojure.test)
-#_{:clj-kondo/ignore [:redefined-var]}
-(clojure.test/deftest single-failing-test
-  (clojure.test/is (= 1 2)))
-
-(in-ns 'eftest.test-ns.another-failing-test)
-(clojure.core/refer-clojure)
-(clojure.core/require 'clojure.test)
-(clojure.test/deftest another-failing-test
-  (clojure.test/is (= 3 4)))
-
-(in-ns 'eftest.test-ns.slow-test)
-(clojure.core/refer-clojure)
-(clojure.core/require 'clojure.test)
-(clojure.test/deftest a-slow-test
-  (clojure.test/is (true? (do (Thread/sleep 10) true))))
-
-(in-ns 'eftest.runner-test)
-
 (defn- with-test-out-str* [f]
   (let [s (java.io.StringWriter.)]
     (binding [clojure.test/*test-out* s]
@@ -41,7 +19,7 @@
   ([test-locs]
    (test-run-tests test-locs {}))
   ([test-locs opts]
-   (let [vars (hawk.core/find-tests test-locs)
+   (let [vars (hawk.core/find-tests test-locs {})
          ret  (promise)
          out  (with-test-out-str (deliver ret (sut/run-tests vars opts)))]
      {:output out

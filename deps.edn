@@ -21,7 +21,8 @@
   ;; clj -X:dev:test
   :test
   {:exec-fn   mb.hawk.core/find-and-run-tests-cli
-   :exec-args {:exclude-directories ["src" "resources"]}}
+   :exec-args {:exclude-directories ["src" "resources"]
+               :exclude-tags        [:hawk.tests/skip]}}
 
   ;; clojure -T:build
   :build
