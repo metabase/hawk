@@ -1,6 +1,7 @@
 (ns eftest.runner-test
-  (:require [clojure.test :refer :all]
-            [eftest.runner :as sut]))
+  (:require
+   [clojure.test :refer :all]
+   [eftest.runner :as sut]))
 
 (in-ns 'eftest.test-ns.single-failing-test)
 (clojure.core/refer-clojure)

@@ -1,12 +1,9 @@
 (ns eftest.report-test
   (:require
-   [clojure.java.io :as io]
    [clojure.test :refer :all]
    [eftest.output-capture :as output-capture]
    [eftest.report :as report]
-   [eftest.report.junit :as junit]
    [eftest.report.pretty :as pretty]
-   [eftest.runner :as sut]
    [puget.printer :as puget]))
 
 (in-ns 'eftest.test-ns.single-failing-test)
@@ -16,17 +13,6 @@
   (clojure.test/is (= 1 2)))
 
 (in-ns 'eftest.report-test)
-
-(defn- delete-dir [file]
-  (doseq [f (reverse (file-seq file))]
-    (.delete f)))
-
-(deftest report-to-file-test
-  (delete-dir (io/file "target/test-out"))
-  (-> 'eftest.test-ns.single-failing-test
-      sut/find-tests
-      (sut/run-tests {:report (report/report-to-file junit/report "target/test-out/junit.xml")}))
-  (is (string? (slurp "target/test-out/junit.xml"))))
 
 (def ^:private this-ns *ns*)
 

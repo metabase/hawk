@@ -1,6 +1,7 @@
 (ns eftest.report
-  (:require [clojure.java.io :as io]
-            [clojure.test :refer [*test-out*]]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.test :refer [*test-out*]]))
 
 (def ^:dynamic *context*
   "Used by eftest.runner/run-tests to hold a mutable atom that persists for the
