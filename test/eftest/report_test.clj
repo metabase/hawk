@@ -6,14 +6,6 @@
    [eftest.report.pretty :as pretty]
    [puget.printer :as puget]))
 
-(in-ns 'eftest.test-ns.single-failing-test)
-(clojure.core/refer-clojure)
-(clojure.core/require 'clojure.test)
-(clojure.test/deftest single-failing-test
-  (clojure.test/is (= 1 2)))
-
-(in-ns 'eftest.report-test)
-
 (def ^:private this-ns *ns*)
 
 (deftest file-and-line-in-pretty-fail-report

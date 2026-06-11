@@ -9,6 +9,8 @@
   (:import
    (java.util.concurrent Executors ExecutorService)))
 
+(set! *warn-on-reflection* true)
+
 (defmethod test/report :begin-test-run [_])
 
 ;; deterministic shuffle stuff is disabled for now since it breaks too much stuff in Metabase.
@@ -34,7 +36,7 @@
       (< 0 (:error @test/*report-counters* 0))
       (< 0 (:fail @test/*report-counters* 0))))
 
-(defn- wrap-test-with-timer [test-fn ns test-warn-time]
+(defn- wrap-test-with-timer [test-fn test-ns test-warn-time]
   (fn [v]
     (let [start-time (System/nanoTime)
           result     (test-fn v)
@@ -43,8 +45,8 @@
       (when (and (not (known-slow? v))
                  (number? test-warn-time)
                  (<= test-warn-time duration))
-        (binding [clojure.test/*testing-vars* (conj clojure.test/*testing-vars* v)
-                  report/*testing-path* [ns v]]
+        (binding [test/*testing-vars*   (conj test/*testing-vars* v)
+                  report/*testing-path* [test-ns v]]
           (test/report {:type     :long-test
                         :duration duration
                         :var      v})))
@@ -88,29 +90,29 @@
    :actual  throwable})
 
 (defn- test-vars
-  [ns vars report
+  [test-ns vars report
    {:as opts :keys [executor fail-fast? capture-output? test-warn-time]
     :or {capture-output? true}}]
-  (let [once-fixtures (-> ns meta ::test/once-fixtures test/join-fixtures)
-        each-fixtures (-> ns meta ::test/each-fixtures test/join-fixtures)
+  (let [once-fixtures (-> test-ns meta ::test/once-fixtures test/join-fixtures)
+        each-fixtures (-> test-ns meta ::test/each-fixtures test/join-fixtures)
         test-var      (-> (fn [v]
                             (when-not (and fail-fast? (failed-test?))
-                              (binding [report/*testing-path* [ns ::test/each-fixtures]
+                              (binding [report/*testing-path* [test-ns ::test/each-fixtures]
                                         hawk.parallel/*parallel?* (hawk.parallel/parallel? v)]
                                 (try
                                   (each-fixtures
                                     (if capture-output?
                                       #(binding [test/report report
-                                                 report/*testing-path* [ns v]]
+                                                 report/*testing-path* [test-ns v]]
                                           (capture/with-test-buffer
                                             (test/test-var v)))
                                       #(binding [test/report report
-                                                 report/*testing-path* [ns v]]
+                                                 report/*testing-path* [test-ns v]]
                                           (test/test-var v))))
                                   (catch Throwable t
                                     (test/do-report (fixture-exception t)))))))
-                          (wrap-test-with-timer ns test-warn-time))]
-    (binding [report/*testing-path* [ns ::test/once-fixtures]]
+                          (wrap-test-with-timer test-ns test-warn-time))]
+    (binding [report/*testing-path* [test-ns ::test/once-fixtures]]
       (try
         (once-fixtures
           (fn []
@@ -121,12 +123,12 @@
         (catch Throwable t
           (test/do-report (fixture-exception t)))))))
 
-(defn- test-ns [ns vars report opts]
-  (let [ns (the-ns ns)]
+(defn- test-ns [namespac vars report opts]
+  (let [namespac (the-ns namespac)]
     (binding [test/*report-counters* (ref test/*initial-report-counters*)]
-      (test/do-report {:type :begin-test-ns, :ns ns})
-      (test-vars ns vars report opts)
-      (test/do-report {:type :end-test-ns, :ns ns})
+      (test/do-report {:type :begin-test-ns, :ns namespac})
+      (test-vars namespac vars report opts)
+      (test/do-report {:type :end-test-ns, :ns namespac})
       @test/*report-counters*)))
 
 (defn- test-all [vars {:as opts
@@ -140,7 +142,7 @@
         f        #(->> (group-by (comp :ns meta) vars)
                        (sort-by (comp str key))
                        #_(deterministic-shuffle randomize-seed)
-                       (mapf (fn [[ns vars]] (test-ns ns vars report opts)))
+                       (mapf (fn [[namespac vars]] (test-ns namespac vars report opts)))
                        (apply merge-with +))]
     (try (if capture-output?
            (capture/with-capture (f))
@@ -148,8 +150,8 @@
          (finally (when (realized? executor)
                     (.shutdownNow @executor))))))
 
-(defn find-tests-in-namespace [ns]
-  (->> ns ns-interns vals (filter (comp :test meta))))
+(defn find-tests-in-namespace [namespac]
+  (->> namespac ns-interns vals (filter (comp :test meta))))
 
 (defn run-tests
   "Run the supplied test vars. Accepts the following options:

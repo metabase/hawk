@@ -225,6 +225,7 @@
                                     %2)
                                  acc
                                  test-result))
+          {}
           (for [i (range 1 (inc n))]
             (do
              (println "----------------------------")

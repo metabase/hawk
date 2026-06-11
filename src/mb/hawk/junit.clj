@@ -3,6 +3,8 @@
    [clojure.test :as t]
    [mb.hawk.junit.write :as write]))
 
+(set! *warn-on-reflection* true)
+
 (defmulti ^:private handle-event!*
   {:arglists '([event])}
   :type)

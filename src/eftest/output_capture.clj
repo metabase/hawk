@@ -2,6 +2,8 @@
   (:import
    (java.io ByteArrayOutputStream OutputStream PrintStream PrintWriter)))
 
+(set! *warn-on-reflection* true)
+
 (def ^:dynamic *test-buffer* nil)
 
 (defn read-test-buffer []

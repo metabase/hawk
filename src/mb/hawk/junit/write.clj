@@ -11,6 +11,8 @@
    (javax.xml.stream XMLOutputFactory XMLStreamWriter)
    (org.apache.commons.io FileUtils)))
 
+(set! *warn-on-reflection* true)
+
 (def ^String ^:private output-dir "target/junit")
 
 (defn clean-output-dir!

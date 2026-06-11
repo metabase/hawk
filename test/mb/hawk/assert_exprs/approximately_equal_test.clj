@@ -5,6 +5,8 @@
    [mb.hawk.assert-exprs.approximately-equal :as =?]
    [schema.core :as s]))
 
+(set! *warn-on-reflection* true)
+
 (comment test-runner.assert-exprs/keep-me)
 
 (deftest ^:parallel passing-tests
@@ -96,7 +98,7 @@
       (is (=? (=?/exactly 2)
               2))
       (testing "should evaluate args"
-        (is (=? (=?/exactly (+ 1 1))
+        (is (=? (=?/exactly (inc 1))
                 2)))
       (testing "Inside a map"
         (is (=? {:a 1, :b (=?/exactly 2)}

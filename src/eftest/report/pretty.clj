@@ -1,5 +1,6 @@
 (ns eftest.report.pretty
   "A test reporter with an emphasis on pretty formatting."
+  (:refer-clojure :exclude [test])
   (:require
    [clojure.data :as data]
    [clojure.string :as str]
@@ -33,15 +34,15 @@
   "\n")
 
 (defn- testing-scope-str [{:keys [file line]}]
-  (let [[ns scope] report/*testing-path*]
+  (let [[test-ns scope] report/*testing-path*]
     (str
      (cond
        (keyword? scope)
-       (str (:clojure-frame *fonts*) (ns-name ns) (:reset *fonts*) " during "
+       (str (:clojure-frame *fonts*) (ns-name test-ns) (:reset *fonts*) " during "
             (:function-name *fonts*) scope (:reset *fonts*))
 
        (var? scope)
-       (str (:clojure-frame *fonts*) (ns-name ns) "/"
+       (str (:clojure-frame *fonts*) (ns-name test-ns) "/"
             (:function-name *fonts*) (:name (meta scope)) (:reset *fonts*)))
      (when (or file line)
        (str " (" (:source *fonts*) file ":" line (:reset *fonts*) ")")))))
@@ -135,8 +136,8 @@
     (error-report m)
     (some-> (capture/read-test-buffer) (print-output))))
 
-(defn- pluralize [word count]
-  (if (= count 1) word (str word "s")))
+(defn- pluralize [word n]
+  (if (= n 1) word (str word "s")))
 
 (defn- format-interval [duration]
   (format "%.3f seconds" (double (/ duration 1e3))))

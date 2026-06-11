@@ -2,5 +2,7 @@
   (:require
    [clojure.test :refer :all]))
 
+(set! *warn-on-reflection* true)
+
 (deftest a-slow-test
   (is (true? (do (Thread/sleep 10) true))))

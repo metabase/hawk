@@ -4,6 +4,8 @@
    [eftest.runner :as sut]
    [mb.hawk.core :as hawk.core]))
 
+(set! *warn-on-reflection* true)
+
 (defn- with-test-out-str* [f]
   (let [s (java.io.StringWriter.)]
     (binding [clojure.test/*test-out* s]
