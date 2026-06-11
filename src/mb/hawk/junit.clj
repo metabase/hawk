@@ -87,9 +87,9 @@
   (let [event (assoc event :testing-contexts (vec t/*testing-contexts*))]
     (alter-meta! test-var update ::context
                  (fn [context]
-                   (-> context
-                       (update :assertion-count inc)
-                       (update :results conj event))))))
+                   (some-> context
+                           (update :assertion-count inc)
+                           (update :results conj event))))))
 
 (defmethod handle-event!* :pass
   [event]

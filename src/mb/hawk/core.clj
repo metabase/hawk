@@ -203,18 +203,16 @@
                         options)]
      (when-not (every? var? test-vars)
        (throw (ex-info "Invalid test vars" {:test-vars test-vars, :options options})))
-     ;; don't randomize test order for now please, thanks anyway
-     (with-redefs [eftest.runner/deterministic-shuffle (fn [_ test-vars] test-vars)]
-       (binding [*parallel-test-counter* (atom {})]
+     (binding [*parallel-test-counter* (atom {})]
+       (merge
+        (eftest.runner/run-tests
+         test-vars
          (merge
-          (eftest.runner/run-tests
-           test-vars
-           (merge
-            {:capture-output? false
-             :multithread?    :vars
-             :report          (reporter options)}
-            options))
-          @*parallel-test-counter*))))))
+          {:capture-output? false
+           :multithread?    :vars
+           :report          (reporter options)}
+          options))
+        @*parallel-test-counter*)))))
 
 (defn- run-tests-n-times
   "[[run-tests]] but repeat `n` times.

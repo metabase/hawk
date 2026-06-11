@@ -10,9 +10,25 @@
   {:level   :warning
    :exclude [clojure.test]}
 
+  :unresolved-var
+  {:exclude [io.aviso.ansi]}
+
   :consistent-alias
   {:aliases
-   {methodical.core methodical}}}
+   {methodical.core methodical}}
+
+  ;;; disabled linters
+
+  :redundant-ignore {:level :off}} ; false positives
 
  :config-in-comment
- {:linters {:unresolved-symbol {:level :off}}}}
+ {:linters {:unresolved-symbol {:level :off}}}
+
+ :ns-groups
+ [{:pattern "^eftest\\..*$"
+   :name    eftest-namespaces}]
+
+ :config-in-ns
+ {eftest-namespaces
+  {:linters
+   {:missing-docstring {:level :off}}}}}

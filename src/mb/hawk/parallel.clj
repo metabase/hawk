@@ -1,8 +1,7 @@
 (ns mb.hawk.parallel
   "Code related to running parallel tests, and utilities for disallowing dangerous stuff inside them."
   (:require
-   [clojure.test :as t]
-   [eftest.runner]))
+   [clojure.test :as t]))
 
 (defn parallel?
   "Whether `test-var` can be ran in parallel with other parallel tests."
@@ -11,10 +10,6 @@
     (if-some [var-parallel (:parallel metta)]
       var-parallel
       (:parallel (-> metta :ns meta)))))
-
-(def ^:private synchronized? (complement parallel?))
-
-(alter-var-root #'eftest.runner/synchronized? (constantly synchronized?))
 
 (def ^:dynamic *parallel?*
   "Whether test currently being ran is being ran in parallel."

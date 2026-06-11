@@ -277,3 +277,9 @@ for more information.
 ```
 clj -X:test '{:fail-fast? true}'
 ```
+
+## License
+
+Copyright © 2019-2026 James Reeves, 2023-2026 Metabase, Inc.
+
+Distributed under the Eclipse Public License either version 2.0 or (at your option) any later version.
