@@ -35,6 +35,16 @@
       (is (=? {:a 100}
               {:a 100, :b 200})))))
 
+(deftest ^:parallel missing-key-test
+  (testing "A key in expected and missing in actual should always fail"
+    (are [expected-val] (= {:k (symbol "nil #_\"key is not present.\"")}
+                           (=?/=?-diff {:k expected-val} {}))
+      some? any? nil? 1)
+    (is (= {:a {:k (symbol "nil #_\"key is not present.\"")}}
+           (=?/=?-diff {:a {:k some?}} {:a {}})))
+    (is (=? {:k some?} {:k 1}))
+    (is (nil? (=?/=?-diff {:k nil?} {:k nil})))))
+
 (deftest ^:parallel sequences-test
   (is (=? []
           []))
