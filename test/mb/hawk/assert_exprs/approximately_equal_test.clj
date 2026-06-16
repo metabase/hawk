@@ -37,18 +37,12 @@
 
 (deftest ^:parallel missing-key-test
   (testing "A key in expected and missing in actual should always fail"
-    (is (= {:k (symbol "nil #_\"key is not present.\"")}
-           (=?/=?-diff {:k some?} {})))
-    (is (= {:k (symbol "nil #_\"key is not present.\"")}
-           (=?/=?-diff {:k any?} {})))
-    (is (= {:k (symbol "nil #_\"key is not present.\"")}
-           (=?/=?-diff {:k nil?} {})))
-    (is (= {:k (symbol "nil #_\"key is not present.\"")}
-           (=?/=?-diff {:k 1} {})))
+    (are [expected-val] (= {:k (symbol "nil #_\"key is not present.\"")}
+                           (=?/=?-diff {:k expected-val} {}))
+      some? any? nil? 1)
     (is (= {:a {:k (symbol "nil #_\"key is not present.\"")}}
            (=?/=?-diff {:a {:k some?}} {:a {}})))
-    (is (=? {:k some?}
-            {:k 1}))
+    (is (=? {:k some?} {:k 1}))
     (is (nil? (=?/=?-diff {:k nil?} {:k nil})))))
 
 (deftest ^:parallel sequences-test
