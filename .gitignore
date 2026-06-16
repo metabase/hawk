@@ -17,3 +17,5 @@ pom.xml
 pom.xml.asc
 # malli + clj-kondo: ignore malli-types
 .clj-kondo/metosin/malli-types-clj
+.calva/
+.DS_STORE

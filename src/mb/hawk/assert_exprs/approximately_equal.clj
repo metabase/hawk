@@ -108,8 +108,9 @@
 (methodical/defmethod =?-diff [clojure.lang.IPersistentMap clojure.lang.IPersistentMap]
   [expected-map actual-map]
   (not-empty (into {} (for [[k expected] expected-map
-                            :let         [actual (get actual-map k (symbol "nil #_\"key is not present.\""))
-                                          diff   (=?-diff expected actual)]
+                            :let         [diff (if (contains? actual-map k)
+                                                 (=?-diff expected (get actual-map k))
+                                                 (symbol "nil #_\"key is not present.\""))]
                             :when        diff]
                         [k diff]))))
 
