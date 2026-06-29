@@ -101,19 +101,21 @@
   nil)
 
 (defmethod write-assertion-result!* :fail
-  [w result]
+  [w {:keys [message], :as result}]
   (write-element!
    w "failure"
-   nil
+   (when message
+     {:message (decolorize-and-escape message)})
    (fn []
      (write-result-output! w result))))
 
 (defmethod write-assertion-result!* :error
-  [w {:keys [actual], :as result}]
+  [w {:keys [actual message], :as result}]
   (write-element!
    w "error"
-   (when (instance? Throwable actual)
-     {:type (.getCanonicalName (class actual))})
+   (cond-> nil
+     (instance? Throwable actual) (assoc :type (.getCanonicalName (class actual)))
+     message                      (assoc :message (decolorize-and-escape message)))
    (fn []
      (write-result-output! w result))))
 
