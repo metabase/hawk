@@ -40,21 +40,39 @@
       (is (= :failure tag))
       (is (not (contains? attrs :message))))))
 
-(deftest error-message-attribute-test
-  (testing "an :error carries both `type` and `message` attributes on the <error> element"
-    (let [{:keys [tag attrs]} (result->element (assoc base-result
-                                                       :type :error
-                                                       :message "boom"
-                                                       :actual (ex-info "kaboom" {})))]
-      (is (= :error tag))
-      (is (= "clojure.lang.ExceptionInfo" (:type attrs)))
-      (is (= "boom" (:message attrs)))))
+(def ^:private uncaught-message
+  "The generic message `clojure.test` attaches to any exception that escapes a test var."
+  "Uncaught exception, not in assertion.")
 
-  (testing "an :error without a :message still has its `type` attribute and no `message`"
+(deftest error-message-attribute-test
+  (testing "an :error uses the exception's own message (not clojure.test's generic one) alongside `type`"
     (let [{:keys [tag attrs]} (result->element (assoc base-result
-                                                       :type :error
-                                                       :message nil
-                                                       :actual (ex-info "kaboom" {})))]
+                                                      :type :error
+                                                      :message uncaught-message
+                                                      :actual (ex-info "kaboom" {})))]
       (is (= :error tag))
       (is (= "clojure.lang.ExceptionInfo" (:type attrs)))
+      (is (= "kaboom" (:message attrs)))))
+
+  (testing "an :error uses the *root cause* message when the exception has a cause chain"
+    (let [{:keys [attrs]} (result->element (assoc base-result
+                                                  :type :error
+                                                  :message uncaught-message
+                                                  :actual (ex-info "outer" {} (ex-info "deadlock - the real cause" {}))))]
+      (is (= "deadlock - the real cause" (:message attrs)))))
+
+  (testing "an :error falls back to the clojure.test :message when :actual is not a Throwable"
+    (let [{:keys [attrs]} (result->element (assoc base-result
+                                                  :type :error
+                                                  :message "some non-exception message"
+                                                  :actual :not-a-throwable))]
+      (is (not (contains? attrs :type)))
+      (is (= "some non-exception message" (:message attrs)))))
+
+  (testing "an :error with no exception message and no :message has `type` but no `message`"
+    (let [{:keys [attrs]} (result->element (assoc base-result
+                                                  :type :error
+                                                  :message nil
+                                                  :actual (Throwable.)))]
+      (is (= "java.lang.Throwable" (:type attrs)))
       (is (not (contains? attrs :message))))))
