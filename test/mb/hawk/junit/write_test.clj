@@ -5,14 +5,16 @@
    [mb.hawk.junit.write :as write])
   (:import
    (java.io ByteArrayInputStream StringWriter)
-   (javax.xml.stream XMLOutputFactory)))
+   (javax.xml.stream XMLOutputFactory XMLStreamWriter)))
+
+(set! *warn-on-reflection* true)
 
 (defn- result->element
   "Run `result` through the (private) assertion writer and parse the single element it produces, returning an XML
   map of the shape `{:tag ..., :attrs {...}, :content [...]}`."
   [result]
-  (let [sw (StringWriter.)
-        w  (.createXMLStreamWriter (XMLOutputFactory/newInstance) sw)]
+  (let [sw                 (StringWriter.)
+        ^XMLStreamWriter w (.createXMLStreamWriter (XMLOutputFactory/newInstance) sw)]
     (.writeStartDocument w)
     (#'write/write-assertion-result!* w result)
     (.writeEndDocument w)
