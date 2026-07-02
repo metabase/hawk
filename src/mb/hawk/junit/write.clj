@@ -92,6 +92,13 @@
   (.writeCharacters w "\n")
   (.writeEndElement w))
 
+(defn- root-cause-message
+  "Message of the root cause of `e` (the deepest exception in its cause chain). `clojure.test` reports an uncaught
+  exception with the generic message \"Uncaught exception, not in assertion.\", so for `:error` results the
+  exception's own message is far more useful as the `message` attribute."
+  [^Throwable e]
+  (ex-message (last (take-while some? (iterate ex-cause e)))))
+
 (defmulti ^:private write-assertion-result!*
   {:arglists '([^XMLStreamWriter w result])}
   (fn [_ result] (:type result)))
@@ -101,21 +108,28 @@
   nil)
 
 (defmethod write-assertion-result!* :fail
-  [w result]
+  [w {:keys [message], :as result}]
   (write-element!
    w "failure"
-   nil
+   (when message
+     {:message (decolorize-and-escape message)})
    (fn []
      (write-result-output! w result))))
 
 (defmethod write-assertion-result!* :error
-  [w {:keys [actual], :as result}]
-  (write-element!
-   w "error"
-   (when (instance? Throwable actual)
-     {:type (.getCanonicalName (class actual))})
-   (fn []
-     (write-result-output! w result))))
+  [w {:keys [actual message], :as result}]
+  ;; prefer the exception's own (root cause) message over `clojure.test`'s generic "Uncaught exception..." message,
+  ;; falling back to the latter when `actual` is not a Throwable or the exception has no message.
+  (let [message (or (when (instance? Throwable actual)
+                      (root-cause-message actual))
+                    message)]
+    (write-element!
+     w "error"
+     (cond-> nil
+       (instance? Throwable actual) (assoc :type (.getCanonicalName (class actual)))
+       message                      (assoc :message (decolorize-and-escape message)))
+     (fn []
+       (write-result-output! w result)))))
 
 (defn- write-assertion-result! [w result]
   (try
