@@ -1,6 +1,7 @@
 (ns mb.hawk.junit
   (:require
    [clojure.test :as t]
+   [mb.eftest.report :as eftest.report]
    [mb.hawk.junit.write :as write]))
 
 (set! *warn-on-reflection* true)
@@ -34,10 +35,12 @@
 (defmethod handle-event!* :begin-test-run
   [_]
   (write/clean-output-dir!)
+  (write/reset-var-less-errors!)
   (write/create-thread-pool!))
 
 (defmethod handle-event!* :summary
   [_]
+  (write/write-var-less-errors!)
   (write/wait-for-writes-to-finish))
 
 (defmethod handle-event!* :begin-test-ns
@@ -105,7 +108,13 @@
 
 (defmethod handle-event!* :error
   [{test-var :var, :as event}]
-  ;; some `:error` events happen because of errors in fixture initialization and don't have associated vars/namespaces
-  (when test-var
-    (inc-ns-test-counts! event :test-count :error-count)
-    (record-assertion-result! event)))
+  (if test-var
+    (do
+      (inc-ns-test-counts! event :test-count :error-count)
+      (record-assertion-result! event))
+    ;; Some `:error` events happen because of fixture-initialization throws (or namespace load/compile errors) and
+    ;; have no associated var/namespace. `clojure.test` still counts them toward the run's error total (and thus the
+    ;; exit code), so surface them via a separate JUnit file rather than dropping them. `*testing-path*` gives the
+    ;; namespace and fixture scope when known, purely for a readable name. See `mb.hawk.junit.write`.
+    (write/record-var-less-error!
+     (assoc event :testing-path eftest.report/*testing-path*))))
