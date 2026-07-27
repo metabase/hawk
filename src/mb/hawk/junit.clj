@@ -6,6 +6,11 @@
 
 (set! *warn-on-reflection* true)
 
+;; Var-less `:error`s (fixture-init throws, namespace load/compile errors) belong to no test var, so they can't be
+;; attached to a namespace's `<testcase>` output. We collect them here across the run and hand the batch to
+;; `write/write-var-less-errors!` at `:summary`. See `mb.hawk.junit.write`.
+(defonce ^:private var-less-errors (atom []))
+
 (defmulti ^:private handle-event!*
   {:arglists '([event])}
   :type)
@@ -35,12 +40,12 @@
 (defmethod handle-event!* :begin-test-run
   [_]
   (write/clean-output-dir!)
-  (write/reset-var-less-errors!)
+  (reset! var-less-errors [])
   (write/create-thread-pool!))
 
 (defmethod handle-event!* :summary
   [_]
-  (write/write-var-less-errors!)
+  (write/write-var-less-errors! @var-less-errors)
   (write/wait-for-writes-to-finish))
 
 (defmethod handle-event!* :begin-test-ns
@@ -116,5 +121,5 @@
     ;; have no associated var/namespace. `clojure.test` still counts them toward the run's error total (and thus the
     ;; exit code), so surface them via a separate JUnit file rather than dropping them. `*testing-path*` gives the
     ;; namespace and fixture scope when known, purely for a readable name. See `mb.hawk.junit.write`.
-    (write/record-var-less-error!
-     (assoc event :testing-path eftest.report/*testing-path*))))
+    (swap! var-less-errors conj
+           (assoc event :testing-path eftest.report/*testing-path*))))

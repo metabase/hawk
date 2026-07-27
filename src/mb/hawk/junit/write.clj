@@ -202,20 +202,9 @@
 ;;;; from JUnit entirely: the exit code and the JUnit output disagreed, and any consumer reconstructing the failed
 ;;;; set from JUnit (e.g. to compute a narrow rerun selector) would silently miss the error.
 ;;;;
-;;;; We collect them here and emit them into their own file at `:summary`. Each becomes a `<testcase>` with a
-;;;; non-empty `name` but deliberately NO `classname` -- see `var-less-error-name`.
-
-(defonce ^:private var-less-errors (atom []))
-
-(defn reset-var-less-errors!
-  "Discard var-less errors accumulated by a previous run. Called at `:begin-test-run`."
-  []
-  (reset! var-less-errors []))
-
-(defn record-var-less-error!
-  "Remember a var-less `:error` result so it can be written to JUnit output at the end of the run."
-  [result]
-  (swap! var-less-errors conj result))
+;;;; `mb.hawk.junit` collects them during the run and hands the whole batch to `write-var-less-errors!` at
+;;;; `:summary`. Each becomes a `<testcase>` with a non-empty `name` but deliberately NO `classname` -- see
+;;;; `var-less-error-name`.
 
 (defn- var-less-error-name
   "A non-empty, human-readable `name` for a var-less error's `<testcase>`. Includes the namespace and fixture scope
@@ -249,26 +238,25 @@
                           (with-out-str (stacktrace/print-cause-trace actual))))))))))
 
 (defn write-var-less-errors!
-  "Write any var-less errors collected during the run to their own JUnit file. Emitting them keeps JUnit output
+  "Write the var-less `errors` collected during the run to their own JUnit file. Emitting them keeps JUnit output
   consistent with the run's error total (and exit code) so downstream consumers don't silently lose them. Does
-  nothing when there were no var-less errors."
-  []
-  (let [errors @var-less-errors]
-    (when (seq errors)
-      (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
-                                            (io/writer (io/file output-dir "mb_hawk_var_less_errors.xml")
-                                                       :encoding "UTF-8"))]
-        (.writeStartDocument w)
-        (write-element!
-         w "testsuite"
-         {:name     "mb.hawk.var-less-errors"
-          :tests    (count errors)
-          :errors   (count errors)
-          :failures 0}
-         (fn []
-           (doseq [error errors]
-             (write-var-less-error!* w error))))
-        (.writeEndDocument w)))))
+  nothing when `errors` is empty."
+  [errors]
+  (when (seq errors)
+    (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
+                                          (io/writer (io/file output-dir "mb_hawk_var_less_errors.xml")
+                                                     :encoding "UTF-8"))]
+      (.writeStartDocument w)
+      (write-element!
+       w "testsuite"
+       {:name     "mb.hawk.var-less-errors"
+        :tests    (count errors)
+        :errors   (count errors)
+        :failures 0}
+       (fn []
+         (doseq [error errors]
+           (write-var-less-error!* w error))))
+      (.writeEndDocument w))))
 
 (defonce ^:private thread-pool (atom nil))
 
