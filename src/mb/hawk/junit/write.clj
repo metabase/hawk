@@ -237,7 +237,7 @@
   (write-element!
    w "testcase"
    ;; NOTE: intentionally no `classname` -- see `var-less-error-name`.
-   {:name (var-less-error-name result)}
+   {:name (decolorize-and-escape (var-less-error-name result))}
    (fn []
      (write-element!
       w "error"
