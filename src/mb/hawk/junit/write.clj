@@ -4,6 +4,7 @@
   (:require
    [clojure.java.io :as io]
    [clojure.pprint :as pprint]
+   [clojure.stacktrace :as stacktrace]
    [clojure.string :as str]
    [pjstadig.print :as p])
   (:import
@@ -232,12 +233,6 @@
     (str (or (not-empty message) "Uncaught error with no associated test var")
          (when where (format " (%s)" where)))))
 
-(defn- throwable->string
-  ^String [^Throwable t]
-  (let [sw (java.io.StringWriter.)]
-    (.printStackTrace t (java.io.PrintWriter. sw))
-    (str sw)))
-
 (defn- write-var-less-error!* [^XMLStreamWriter w {:keys [actual] :as result}]
   (write-element!
    w "testcase"
@@ -250,7 +245,8 @@
       (fn []
         (when (instance? Throwable actual)
           (.writeCharacters w "\n")
-          (.writeCData w (decolorize-and-escape (throwable->string actual)))))))))
+          (.writeCData w (decolorize-and-escape
+                          (with-out-str (stacktrace/print-cause-trace actual))))))))))
 
 (defn write-var-less-errors!
   "Write any var-less errors collected during the run to their own JUnit file. Emitting them keeps JUnit output
