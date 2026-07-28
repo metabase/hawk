@@ -4,6 +4,7 @@
   (:require
    [clojure.java.io :as io]
    [clojure.pprint :as pprint]
+   [clojure.stacktrace :as stacktrace]
    [clojure.string :as str]
    [pjstadig.print :as p])
   (:import
@@ -99,6 +100,19 @@
   [^Throwable e]
   (ex-message (last (take-while some? (iterate ex-cause e)))))
 
+(defn- error-element-attributes
+  "Attributes for an `<error>` element built from an `:error` result: the exception's class as `type` and its
+  root-cause message as `message`. Prefers the exception's own (root cause) message over `clojure.test`'s generic
+  \"Uncaught exception...\" message, falling back to the latter when `actual` is not a Throwable or the exception has
+  no message."
+  [{:keys [actual message]}]
+  (let [message (or (when (instance? Throwable actual)
+                      (root-cause-message actual))
+                    message)]
+    (cond-> nil
+      (instance? Throwable actual) (assoc :type (.getCanonicalName (class actual)))
+      message                      (assoc :message (decolorize-and-escape message)))))
+
 (defmulti ^:private write-assertion-result!*
   {:arglists '([^XMLStreamWriter w result])}
   (fn [_ result] (:type result)))
@@ -117,19 +131,12 @@
      (write-result-output! w result))))
 
 (defmethod write-assertion-result!* :error
-  [w {:keys [actual message], :as result}]
-  ;; prefer the exception's own (root cause) message over `clojure.test`'s generic "Uncaught exception..." message,
-  ;; falling back to the latter when `actual` is not a Throwable or the exception has no message.
-  (let [message (or (when (instance? Throwable actual)
-                      (root-cause-message actual))
-                    message)]
-    (write-element!
-     w "error"
-     (cond-> nil
-       (instance? Throwable actual) (assoc :type (.getCanonicalName (class actual)))
-       message                      (assoc :message (decolorize-and-escape message)))
-     (fn []
-       (write-result-output! w result)))))
+  [w result]
+  (write-element!
+   w "error"
+   (error-element-attributes result)
+   (fn []
+     (write-result-output! w result))))
 
 (defn- write-assertion-result! [w result]
   (try
@@ -185,6 +192,71 @@
        (throw (ex-info (str "Error writing XML for test namespace result: " (ex-message e))
                        {:result result}
                        e))))))
+
+;;;; Var-less errors
+;;;;
+;;;; Some `:error`s belong to no test var (and sometimes no namespace) -- a `:once`/`:each` fixture-init throw, or a
+;;;; namespace load/compile error. `clojure.test`/eftest still counts them toward the run's error total, and
+;;;; `mb.hawk.core` derives the process exit code from that total, so an error like this *fails the run*. But the
+;;;; namespace->var keyed writer above has nowhere to put an error with no var, so historically these were dropped
+;;;; from JUnit entirely: the exit code and the JUnit output disagreed, and any consumer reconstructing the failed
+;;;; set from JUnit (e.g. to compute a narrow rerun selector) would silently miss the error.
+;;;;
+;;;; `mb.hawk.junit` collects them during the run and hands the whole batch to `write-var-less-errors!` at
+;;;; `:summary`. Each becomes a `<testcase>` with a non-empty `name` but deliberately NO `classname` -- see
+;;;; `var-less-error-name`.
+
+(defn- var-less-error-name
+  "A non-empty, human-readable `name` for a var-less error's `<testcase>`. Includes the namespace and fixture scope
+  when known (purely for readability). It deliberately does NOT encode a resolvable namespace+var: there is no var,
+  so a consumer that reconstructs a rerun selector from JUnit must treat this error as unattributable (and rerun
+  everything) rather than target a nonexistent var."
+  [{:keys [testing-path message]}]
+  (let [[test-ns scope] testing-path
+        scope-str       (case scope
+                          :clojure.test/once-fixtures ":once fixture"
+                          :clojure.test/each-fixtures  ":each fixture"
+                          nil)
+        where           (when test-ns
+                          (str test-ns (when scope-str (str " " scope-str))))]
+    (str (or (not-empty message) "Uncaught error with no associated test var")
+         (when where (format " (%s)" where)))))
+
+(defn- write-var-less-error!* [^XMLStreamWriter w {:keys [actual] :as result}]
+  (write-element!
+   w "testcase"
+   ;; NOTE: intentionally no `classname` -- see `var-less-error-name`.
+   {:name (decolorize-and-escape (var-less-error-name result))}
+   (fn []
+     (write-element!
+      w "error"
+      (error-element-attributes result)
+      (fn []
+        (when (instance? Throwable actual)
+          (.writeCharacters w "\n")
+          (.writeCData w (decolorize-and-escape
+                          (with-out-str (stacktrace/print-cause-trace actual))))))))))
+
+(defn write-var-less-errors!
+  "Write the var-less `errors` collected during the run to their own JUnit file. Emitting them keeps JUnit output
+  consistent with the run's error total (and exit code) so downstream consumers don't silently lose them. Does
+  nothing when `errors` is empty."
+  [errors]
+  (when (seq errors)
+    (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
+                                          (io/writer (io/file output-dir "mb_hawk_var_less_errors.xml")
+                                                     :encoding "UTF-8"))]
+      (.writeStartDocument w)
+      (write-element!
+       w "testsuite"
+       {:name     "mb.hawk.var-less-errors"
+        :tests    (count errors)
+        :errors   (count errors)
+        :failures 0}
+       (fn []
+         (doseq [error errors]
+           (write-var-less-error!* w error))))
+      (.writeEndDocument w))))
 
 (defonce ^:private thread-pool (atom nil))
 

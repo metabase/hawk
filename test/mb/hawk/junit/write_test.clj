@@ -76,3 +76,43 @@
                                                   :actual (Throwable.)))]
       (is (= "java.lang.Throwable" (:type attrs)))
       (is (not (contains? attrs :message))))))
+
+(defn- var-less-error->testcase
+  "Run `result` through the (private) var-less error writer and parse the `<testcase>` element it produces."
+  [result]
+  (let [sw                 (StringWriter.)
+        ^XMLStreamWriter w (.createXMLStreamWriter (XMLOutputFactory/newInstance) sw)]
+    (.writeStartDocument w)
+    (#'write/write-var-less-error!* w result)
+    (.writeEndDocument w)
+    (.flush w)
+    (xml/parse (ByteArrayInputStream. (.getBytes (str sw) "UTF-8")))))
+
+(deftest var-less-error-name-test
+  (testing "a var-less error name is non-empty and never encodes a resolvable ns/var"
+    (testing "with a namespace + fixture scope, the ns is included but not as an `ns/var` form"
+      (let [nom (#'write/var-less-error-name {:testing-path ['metabase.foo-test :clojure.test/once-fixtures]
+                                              :message      "Uncaught exception during fixture initialization."})]
+        (is (seq nom))
+        (is (re-find #"metabase\.foo-test" nom))
+        (is (re-find #":once fixture" nom))
+        ;; the collector attributes a failure by resolving `classname`/name to `ns/var`; the name must not look like one
+        (is (not (re-find #"metabase\.foo-test/" nom)))))
+
+    (testing "with no testing-path and no message, it still yields a non-empty name"
+      (is (seq (#'write/var-less-error-name {}))))))
+
+(deftest var-less-error-testcase-test
+  (testing "a var-less error is emitted as a <testcase> with a non-empty name and NO classname"
+    (let [{:keys [tag attrs content]}
+          (var-less-error->testcase {:testing-path ['metabase.foo-test :clojure.test/once-fixtures]
+                                     :message      "Uncaught exception during fixture initialization."
+                                     :actual       (ex-info "fixture boom" {})})]
+      (is (= :testcase tag))
+      (is (seq (:name attrs)))
+      ;; the crux of the contract: no resolvable var, so `parseJunit` yields `path: undefined` -> full rerun
+      (is (not (contains? attrs :classname)))
+      (let [{error-tag :tag, error-attrs :attrs} (first (filter :tag content))]
+        (is (= :error error-tag))
+        (is (= "clojure.lang.ExceptionInfo" (:type error-attrs)))
+        (is (= "fixture boom" (:message error-attrs)))))))
