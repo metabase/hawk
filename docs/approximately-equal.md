@@ -77,6 +77,29 @@ expected: {:m (exactly {:a 1})}
           + nil
 ```
 
+### `:hawk/key-not-present`
+
+`:hawk/key-not-present` is used as a map value in `expected` and asserts that the key is *not* present in the `actual` map.
+Note that a key that is present with a `nil` value counts as present, and fails. Since it's just a keyword, no
+requires are needed to use it; `:hawk/key-not-present` is defined as the same keyword if you prefer a named var.
+
+For backwards compatibility, the legacy `(symbol "nil #_\"key is not present.\"")` sentinel is also accepted as an expected map value.
+
+```clj
+(is (=? {:a 1, :b :hawk/key-not-present}
+        {:a 1}))
+=> ok
+
+(is (=? {:a 1, :b :hawk/key-not-present}
+        {:a 1, :b 3}))
+;; =>
+expected: {:a 1, :b :hawk/key-not-present}
+
+  actual: {:a 1, :b 3}
+    diff: - {:b (not= :hawk/key-not-present 3)}
+          + nil
+```
+
 ### `schema`
 
 `schema` compares things to a `schema.core` Schema:

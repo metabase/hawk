@@ -37,13 +37,40 @@
 
 (deftest ^:parallel missing-key-test
   (testing "A key in expected and missing in actual should always fail"
-    (are [expected-val] (= {:k (symbol "nil #_\"key is not present.\"")}
+    (are [expected-val] (= {:k :hawk/key-not-present}
                            (=?/=?-diff {:k expected-val} {}))
       some? any? nil? 1)
-    (is (= {:a {:k (symbol "nil #_\"key is not present.\"")}}
+    (is (= {:a {:k :hawk/key-not-present}}
            (=?/=?-diff {:a {:k some?}} {:a {}})))
     (is (=? {:k some?} {:k 1}))
     (is (nil? (=?/=?-diff {:k nil?} {:k nil})))))
+
+(deftest ^:parallel key-not-present-test
+  (testing "Should pass when the key is not present in actual"
+    (is (=? {:a 1, :b :hawk/key-not-present}
+            {:a 1}))
+    (is (=? {:a 1, :b :hawk/key-not-present}
+            {:a 1}))
+    (is (=? {:a 1, :b (symbol "nil #_\"key is not present.\"")}
+            {:a 1})))
+  (testing "Inside a nested map"
+      (is (=? {:a {:b :hawk/key-not-present}}
+              {:a {}})))
+  (testing "Should fail when the key is present in actual"
+    (is (= "{:b (not= :hawk/key-not-present 3)}"
+           (pr-str (=?/=?-diff {:a 1, :b :hawk/key-not-present}
+                               {:a 1, :b 3}))))
+    (testing "even when its value is nil"
+      (is (= "{:b (not= :hawk/key-not-present nil)}"
+             (pr-str (=?/=?-diff {:a 1, :b :hawk/key-not-present}
+                                 {:a 1, :b nil})))))
+    (testing "Inside a nested map"
+      (is (= "{:a {:b (not= :hawk/key-not-present 3)}}"
+             (pr-str (=?/=?-diff {:a {:b :hawk/key-not-present}}
+                                 {:a {:b 3}}))))))
+  (testing "Used somewhere other than a map value it fails against any non-equal value"
+    (is (= "(not= :hawk/key-not-present 1)"
+           (pr-str (=?/=?-diff :hawk/key-not-present 1))))))
 
 (deftest ^:parallel sequences-test
   (is (=? []

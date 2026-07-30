@@ -105,12 +105,16 @@
         (let [this-diff (=?-diff (first expected) (first actual))]
           (recur (conj diffs this-diff) (rest expected) (rest actual)))))))
 
+(defn- key-not-present? [expected-val]
+  (or (= expected-val :hawk/key-not-present) (= expected-val (symbol "nil #_\"key is not present.\""))))
+
 (methodical/defmethod =?-diff [clojure.lang.IPersistentMap clojure.lang.IPersistentMap]
   [expected-map actual-map]
   (not-empty (into {} (for [[expected-key expected-val] expected-map
                             :let [diff (if (contains? actual-map expected-key)
                                          (=?-diff expected-val (get actual-map expected-key))
-                                         (symbol "nil #_\"key is not present.\""))]
+                                         (when-not (key-not-present? expected-val)
+                                           :hawk/key-not-present))]
                             :when diff]
                         [expected-key diff]))))
 
