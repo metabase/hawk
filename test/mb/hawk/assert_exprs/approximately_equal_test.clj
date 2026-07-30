@@ -45,7 +45,7 @@
     (is (=? {:k some?} {:k 1}))
     (is (nil? (=?/=?-diff {:k nil?} {:k nil})))))
 
-(deftest ^:paralle key-not-present-test
+(deftest ^:parallel key-not-present-test
   (testing "Should pass when the key is not present in actual"
     (is (=? {:a 1, :b :hawk/key-not-present}
             {:a 1}))
