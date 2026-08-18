@@ -78,7 +78,17 @@ else.
 
 Unlike Eftest, parallelization in Hawk tests is opt-in. This is mostly a byproduct of it beginning life as the
 Metabase test runner. All tests are ran synchronously unless they are given `^:parallel` metadata (either the test
-itself, or the namespace).
+itself, or the namespace). A test in a parallel namespace can explicitly opt out with `^:synchronized`:
+
+```clj
+(ns ^:parallel my.namespace-test)
+
+(deftest ^:synchronized changes-global-state-test
+  ...)
+```
+
+Test metadata takes precedence over namespace metadata, so `^:synchronized` is equivalent to `^{:parallel false}` on
+either a test or namespace. Conversely, an individual `^:parallel` test can opt in from a synchronized namespace.
 
 Hawk includes `mb.hawk.parallel/assert-test-is-not-parallel`, which you can use to make sure things that shouldn't be ran
 in parallel tests are not:
