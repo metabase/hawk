@@ -36,20 +36,23 @@
       (< 0 (:error @test/*report-counters* 0))
       (< 0 (:fail @test/*report-counters* 0))))
 
-(defn- wrap-test-with-timer [test-fn test-ns test-warn-time]
+(defn- wrap-test-with-timer [test-fn test-ns test-warn-time test-abort-time]
   (fn [v]
     (let [start-time (System/nanoTime)
           result     (test-fn v)
           end-time   (System/nanoTime)
           duration   (/ (- end-time start-time) 1e6)]
-      (when (and (not (known-slow? v))
-                 (number? test-warn-time)
-                 (<= test-warn-time duration))
-        (binding [test/*testing-vars*   (conj test/*testing-vars* v)
-                  report/*testing-path* [test-ns v]]
-          (test/report {:type     :long-test
-                        :duration duration
-                        :var      v})))
+      (when-not (known-slow? v)
+        (when (and (number? test-warn-time) (<= test-warn-time duration))
+          (binding [test/*testing-vars*   (conj test/*testing-vars* v)
+                    report/*testing-path* [test-ns v]]
+            (test/report {:type     :long-test
+                          :duration duration
+                          :var      v})))
+        (when (and (number? test-abort-time) (<= test-abort-time duration))
+          (println (format "Test %s took %s which exceeded abort time of %s"
+                           v duration test-abort-time))
+          (System/exit 1)))
       result)))
 
 (defn- bound-callback ^Callable [f]
@@ -91,7 +94,7 @@
 
 (defn- test-vars
   [test-ns vars report
-   {:as opts :keys [executor fail-fast? capture-output? test-warn-time]
+   {:as opts :keys [executor fail-fast? capture-output? test-warn-time test-abort-time]
     :or {capture-output? true}}]
   (let [once-fixtures (-> test-ns meta ::test/once-fixtures test/join-fixtures)
         each-fixtures (-> test-ns meta ::test/each-fixtures test/join-fixtures)
@@ -111,7 +114,7 @@
                                           (test/test-var v))))
                                   (catch Throwable t
                                     (test/do-report (fixture-exception t)))))))
-                          (wrap-test-with-timer test-ns test-warn-time))]
+                          (wrap-test-with-timer test-ns test-warn-time test-abort-time))]
     (binding [report/*testing-path* [test-ns ::test/once-fixtures]]
       (try
         (once-fixtures
