@@ -238,6 +238,10 @@
   (cond-> options
     (-> options :ignored :vars seq) (update-in [:ignored :vars] set)))
 
+(defn- install-shutdown-hook-for-mode! [mode]
+  (when (#{:cli/local :cli/ci} mode)
+    (hawk.junit/install-shutdown-hook!)))
+
 (defn- find-and-run-tests-with-options
   "Entrypoint for the test runner. `options` are passed directly to `eftest`; see https://github.com/weavejester/eftest
   for full list of options."
@@ -245,6 +249,7 @@
   (let [start-time-ms   (System/currentTimeMillis)
         options         (normalize-options options)
         test-vars       (find-tests-with-options options)
+        _               (install-shutdown-hook-for-mode! (:mode options))
         _               (hawk.hooks/before-run options)
         [summary fail?] (try
                           (let [summary (if-let [n (get options :times)]

@@ -11,6 +11,13 @@
 ;; `write/write-var-less-errors!` at `:summary`. See `mb.hawk.junit.write`.
 (defonce ^:private var-less-errors (atom []))
 
+(def ^:private initial-running-state
+  {:namespaces #{}
+   :vars       #{}
+   :finished?  false})
+
+(defonce ^:private running (atom initial-running-state))
+
 (defmulti ^:private handle-event!*
   {:arglists '([event])}
   :type)
@@ -41,10 +48,12 @@
   [_]
   (write/clean-output-dir!)
   (reset! var-less-errors [])
+  (reset! running initial-running-state)
   (write/create-thread-pool!))
 
 (defmethod handle-event!* :summary
   [_]
+  (swap! running assoc :finished? true)
   (write/write-var-less-errors! @var-less-errors)
   (write/wait-for-writes-to-finish))
 
@@ -57,7 +66,8 @@
     :test-count      0
     :error-count     0
     :failure-count   0
-    :results         []}))
+    :results         []})
+  (swap! running update :namespaces conj test-ns))
 
 (defmethod handle-event!* :end-test-ns
   [{test-ns :ns, :as event}]
@@ -66,6 +76,7 @@
                  event
                  context
                  {:duration-ms (- (System/currentTimeMillis) (:start-time-ms context))})]
+    (swap! running update :namespaces disj test-ns)
     (write/write-ns-result! result)))
 
 (defmethod handle-event!* :begin-test-var
@@ -74,7 +85,8 @@
    test-var assoc ::context
    {:start-time-ms   (System/currentTimeMillis)
     :assertion-count 0
-    :results         []}))
+    :results         []})
+  (swap! running update :vars conj test-var))
 
 (defmethod handle-event!* :end-test-var
   [{test-ns :ns, test-var :var, :as event}]
@@ -83,7 +95,8 @@
                  event
                  context
                  {:duration-ms (- (System/currentTimeMillis) (:start-time-ms context))})]
-    (alter-meta! test-ns update-in [::context :results] conj result)))
+    (alter-meta! test-ns update-in [::context :results] conj result)
+    (swap! running update :vars disj test-var)))
 
 (defn- inc-ns-test-counts! [{test-ns :ns, :as _event} & ks]
   (alter-meta! test-ns update ::context (fn [context]
@@ -123,3 +136,81 @@
     ;; namespace and fixture scope when known, purely for a readable name. See `mb.hawk.junit.write`.
     (swap! var-less-errors conj
            (assoc event :testing-path eftest.report/*testing-path*))))
+
+(defn- duration-since [{:keys [start-time-ms]} now-ms]
+  (if start-time-ms
+    (- now-ms start-time-ms)
+    0))
+
+(defn- finished-assertion-counts [var-results]
+  (let [types (map :type (mapcat :results var-results))]
+    {:test-count    (count (filter #{:pass :fail :error} types))
+     :failure-count (count (filter #{:fail} types))
+     :error-count   (count (filter #{:error} types))}))
+
+(defn- partial-ns-result [test-ns now-ms]
+  (let [context (::context (meta test-ns))]
+    (merge context
+           (finished-assertion-counts (:results context))
+           {:ns          test-ns
+            :duration-ms (duration-since context now-ms)})))
+
+(defn- finished-vars [ns-result]
+  (into #{} (map :var) (:results ns-result)))
+
+(defn- timed-out-var-result [test-var now-ms]
+  (let [context (::context (meta test-var))]
+    (assoc context
+           :ns          (:ns (meta test-var))
+           :var         test-var
+           :duration-ms (duration-since context now-ms))))
+
+(defn- timed-out-results
+  [ns-results test-vars now-ms]
+  (let [finished  (into #{} (mapcat finished-vars) ns-results)
+        vars      (->> test-vars
+                       (remove finished)
+                       (sort-by symbol)
+                       (mapv #(timed-out-var-result % now-ms)))
+        busy-nses (into #{} (map :ns) vars)]
+    {:vars     vars
+     :fixtures (->> ns-results
+                    (remove #(busy-nses (:ns %)))
+                    (sort-by #(ns-name (:ns %)))
+                    (mapv #(select-keys % [:ns :duration-ms])))}))
+
+(defn- try-write! [description f]
+  (try
+    (f)
+    (catch Throwable e
+      (binding [*out* *err*]
+        (println (format "hawk: could not write %s on shutdown: %s" description (ex-message e)))))))
+
+(defn write-partial-results!
+  "Write the JUnit output for a test run that has not finished: each running namespace with its finished vars, each
+  running var as a \"timed out\" error in `mb_hawk_timeouts.xml`, and the var-less errors collected so far. Does
+  nothing after `:summary`. Called by the shutdown hook."
+  []
+  (when-not (:finished? @running)
+    (try-write! "queued namespace results" #(write/wait-for-writes-to-finish 2))
+    (let [{:keys [namespaces vars]} @running
+          now-ms                    (System/currentTimeMillis)
+          ns-results                (->> namespaces
+                                         (filter #(::context (meta %)))
+                                         (mapv #(partial-ns-result % now-ms)))]
+      (try-write! "timed out tests" #(write/write-timeout-results! (timed-out-results ns-results vars now-ms)))
+      (doseq [ns-result ns-results]
+        (try-write! (str "partial results for " (ns-name (:ns ns-result)))
+                    #(write/write-ns-result-now! ns-result)))
+      (try-write! "var-less errors" #(write/write-var-less-errors! @var-less-errors)))))
+
+(defonce ^:private shutdown-hook (atom nil))
+
+(defn install-shutdown-hook!
+  "Install a JVM shutdown hook that calls [[write-partial-results!]], so a test run killed by SIGTERM or SIGINT (for
+  example by a CI timeout) still writes JUnit output for the tests that were running. Installs the hook only once."
+  []
+  (when-not @shutdown-hook
+    (let [hook (Thread. ^Runnable write-partial-results! "hawk JUnit shutdown writer")]
+      (when (compare-and-set! shutdown-hook nil hook)
+        (.addShutdownHook (Runtime/getRuntime) hook)))))

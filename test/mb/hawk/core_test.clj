@@ -2,7 +2,8 @@
   (:require
    [clojure.set :as set]
    [clojure.test :refer :all]
-   [mb.hawk.core :as hawk]))
+   [mb.hawk.core :as hawk]
+   [mb.hawk.junit :as hawk.junit]))
 
 (deftest simple
   ;; need a test that already exists without moving them or circularity
@@ -111,3 +112,11 @@
   (testing "Can find tests when supplied a file path"
     (is (some #{#'only-test}
               (hawk/find-tests "test/mb/hawk/core_test.clj" nil)))))
+
+(deftest install-shutdown-hook-for-mode-test
+  (doseq [[mode installed?] {:cli/local true, :cli/ci true, :repl false, nil false}]
+    (testing (str "mode " (pr-str mode))
+      (let [calls (atom 0)]
+        (with-redefs [hawk.junit/install-shutdown-hook! #(swap! calls inc)]
+          (#'hawk/install-shutdown-hook-for-mode! mode))
+        (is (= (if installed? 1 0) @calls))))))
