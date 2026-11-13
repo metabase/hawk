@@ -3,7 +3,8 @@
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer :all]
-   [clojure.xml :as xml])
+   [clojure.xml :as xml]
+   [mb.hawk.junit :as junit])
   (:import
    (java.io File)
    (java.nio.file Files)
@@ -60,7 +61,7 @@
         (FileUtils/deleteDirectory dir)))))
 
 (deftest sigterm-writes-running-tests-test
-  (testing "a CI run killed by SIGTERM while a test hangs writes that test as timed out"
+  (testing "a CI run killed by SIGTERM while a test hangs writes that test as still running"
     (kill-hanging-test
      :cli/ci
      (fn [^File file output]
@@ -70,4 +71,22 @@
                [error]    (filter #(= :error (:tag %)) (:content testcase))]
            (is (= {:classname "hawk.test-ns.hanging-test", :name "hanging-test"}
                   (select-keys (:attrs testcase) [:classname :name])))
-           (is (= "timed out" (get-in error [:attrs :message])))))))))
+           (is (= "The test was still running when the JVM shut down" (get-in error [:attrs :message])))))))))
+
+(deftest partial-ns-result-test
+  (let [fake-ns  (create-ns 'mb.hawk.junit-test.fake)
+        fake-var (intern fake-ns 'running-test)
+        context  {:start-time-ms 0, :test-count 2, :error-count 0, :failure-count 0, :results [{:var 'finished}]}]
+    (alter-meta! fake-ns assoc ::junit/context context)
+    (alter-meta! fake-var assoc ::junit/context {:start-time-ms 500, :assertion-count 0, :results []})
+    (try
+      (testing "a running var is added as a result with a shutdown error"
+        (let [result (#'junit/partial-ns-result fake-ns #{fake-var} 1000)]
+          (is (= [3 1 false] ((juxt :test-count :error-count :running-outside-var?) result)))
+          (is (= [:shutdown] (map :type (:results (last (:results result))))))))
+      (testing "a namespace with no running var is running outside a test var"
+        (let [result (#'junit/partial-ns-result fake-ns #{} 1000)]
+          (is (= [3 1 true] ((juxt :test-count :error-count :running-outside-var?) result)))
+          (is (= [{:var 'finished}] (:results result)))))
+      (finally
+        (remove-ns 'mb.hawk.junit-test.fake)))))

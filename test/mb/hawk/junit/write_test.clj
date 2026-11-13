@@ -128,18 +128,32 @@
     (.flush w)
     (xml/parse (ByteArrayInputStream. (.getBytes (str sw) "UTF-8")))))
 
-(deftest timed-out-outside-var-testcase-test
-  (testing "a namespace that hung outside a test var is a <testcase> with NO classname and a timed out <error>"
-    (let [{:keys [content]} (ns-result->suite {:ns                     (the-ns 'mb.hawk.junit.write-test)
-                                               :duration-ms            1000
-                                               :timestamp              "2026-11-13T00:00:00Z"
-                                               :test-count             1
-                                               :error-count            1
-                                               :failure-count          0
-                                               :results                []
-                                               :timed-out-outside-var? true})
+(deftest running-outside-var-testcase-test
+  (testing "a namespace still running outside a test var is a <testcase> with NO classname and a shutdown <error>"
+    (let [{:keys [content]} (ns-result->suite {:ns                   (the-ns 'mb.hawk.junit.write-test)
+                                               :duration-ms          1000
+                                               :timestamp            "2026-11-13T00:00:00Z"
+                                               :test-count           1
+                                               :error-count          1
+                                               :failure-count        0
+                                               :results              []
+                                               :running-outside-var? true})
           [{:keys [attrs], testcase-content :content}] (filter :tag content)]
-      (is (= "timed out outside a test var (mb.hawk.junit.write-test)" (:name attrs)))
+      (is (= "still running outside a test var (mb.hawk.junit.write-test)" (:name attrs)))
       (is (not (contains? attrs :classname)))
-      (is (= {:message "timed out", :type "mb.hawk.Timeout"}
+      (is (= {:message "The test was still running when the JVM shut down", :type "mb.hawk.Shutdown"}
              (:attrs (first (filter :tag testcase-content))))))))
+
+(deftest not-started-vars-test
+  (testing "each var that did not start is a <testcase> with a <skipped> element"
+    (let [sw                 (StringWriter.)
+          ^XMLStreamWriter w (.createXMLStreamWriter (XMLOutputFactory/newInstance) sw)
+          _                  (.writeStartDocument w)
+          _                  (#'write/write-not-started-vars!* w [#'not-started-vars-test])
+          _                  (.writeEndDocument w)
+          _                  (.flush w)
+          {:keys [attrs content]} (xml/parse (ByteArrayInputStream. (.getBytes (str sw) "UTF-8")))
+          [testcase]         (filter :tag content)]
+      (is (= {:tests "1", :skipped "1"} (select-keys attrs [:tests :skipped])))
+      (is (= {:classname "mb.hawk.junit.write-test", :name "not-started-vars-test"} (:attrs testcase)))
+      (is (= [:skipped] (map :tag (filter :tag (:content testcase))))))))

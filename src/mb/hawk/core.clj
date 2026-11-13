@@ -246,7 +246,7 @@
         options         (normalize-options options)
         test-vars       (find-tests-with-options options)
         _               (when (= :cli/ci (:mode options))
-                          (hawk.junit/install-shutdown-hook!))
+                          (hawk.junit/install-shutdown-hook! test-vars))
         _               (hawk.hooks/before-run options)
         [summary fail?] (try
                           (let [summary (if-let [n (get options :times)]
