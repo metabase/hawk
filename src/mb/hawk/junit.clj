@@ -12,9 +12,8 @@
 (defonce ^:private var-less-errors (atom []))
 
 (def ^:private initial-running-state
-  {:namespaces #{}
-   :vars       #{}
-   :finished?  false})
+  {:namespaces  #{}
+   :finished-by nil})
 
 (defonce ^:private running (atom initial-running-state))
 
@@ -44,8 +43,19 @@
 (defmethod handle-event!* :default
   [_])
 
+(declare install-shutdown-hook!)
+
+(defn- finish-run!
+  "Mark the run as finished by `who` (`:summary` or `:shutdown-hook`). Returns the running state from before, or nil
+  when the run was already finished, so that only the first of `:summary` and the shutdown hook writes."
+  [who]
+  (let [[old] (swap-vals! running assoc :finished-by who)]
+    (when-not (:finished-by old)
+      old)))
+
 (defmethod handle-event!* :begin-test-run
   [_]
+  (install-shutdown-hook!)
   (write/clean-output-dir!)
   (reset! var-less-errors [])
   (reset! running initial-running-state)
@@ -53,8 +63,8 @@
 
 (defmethod handle-event!* :summary
   [_]
-  (swap! running assoc :finished? true)
-  (write/write-var-less-errors! @var-less-errors)
+  (when (finish-run! :summary)
+    (write/write-var-less-errors! @var-less-errors))
   (write/wait-for-writes-to-finish))
 
 (defmethod handle-event!* :begin-test-ns
@@ -66,7 +76,8 @@
     :test-count      0
     :error-count     0
     :failure-count   0
-    :results         []})
+    :results         []
+    :running-vars    #{}})
   (swap! running update :namespaces conj test-ns))
 
 (defmethod handle-event!* :end-test-ns
@@ -76,17 +87,17 @@
                  event
                  context
                  {:duration-ms (- (System/currentTimeMillis) (:start-time-ms context))})]
-    (swap! running update :namespaces disj test-ns)
-    (write/write-ns-result! result)))
+    (when-not (= :shutdown-hook (:finished-by (first (swap-vals! running update :namespaces disj test-ns))))
+      (write/write-ns-result! result))))
 
 (defmethod handle-event!* :begin-test-var
-  [{test-var :var}]
+  [{test-ns :ns, test-var :var}]
   (alter-meta!
    test-var assoc ::context
    {:start-time-ms   (System/currentTimeMillis)
     :assertion-count 0
     :results         []})
-  (swap! running update :vars conj test-var))
+  (alter-meta! test-ns update-in [::context :running-vars] (fnil conj #{}) test-var))
 
 (defmethod handle-event!* :end-test-var
   [{test-ns :ns, test-var :var, :as event}]
@@ -95,8 +106,9 @@
                  event
                  context
                  {:duration-ms (- (System/currentTimeMillis) (:start-time-ms context))})]
-    (alter-meta! test-ns update-in [::context :results] conj result)
-    (swap! running update :vars disj test-var)))
+    (alter-meta! test-ns update ::context #(-> %
+                                                (update :results conj result)
+                                                (update :running-vars disj test-var)))))
 
 (defn- inc-ns-test-counts! [{test-ns :ns, :as _event} & ks]
   (alter-meta! test-ns update ::context (fn [context]
@@ -137,45 +149,29 @@
     (swap! var-less-errors conj
            (assoc event :testing-path eftest.report/*testing-path*))))
 
-(defn- duration-since [{:keys [start-time-ms]} now-ms]
-  (if start-time-ms
-    (- now-ms start-time-ms)
-    0))
-
-(defn- assertion-counts [var-results]
-  (let [types (map :type (mapcat :results var-results))]
-    {:test-count    (count (filter #{:pass :fail :error :timeout} types))
-     :failure-count (count (filter #{:fail} types))
-     :error-count   (count (filter #{:error :timeout} types))}))
-
 (defn- timed-out-var-result [test-var now-ms]
   (let [context     (::context (meta test-var))
-        duration-ms (duration-since context now-ms)]
+        duration-ms (- now-ms (:start-time-ms context))]
     (-> context
         (assoc :ns          (:ns (meta test-var))
                :var         test-var
                :duration-ms duration-ms)
-        (update :results (fnil conj []) {:type :timeout, :duration-ms duration-ms}))))
+        (update :results conj {:type :timeout, :duration-ms duration-ms}))))
 
-(defn- partial-ns-result [test-ns running-vars now-ms]
-  (let [context   (::context (meta test-ns))
-        finished  (:results context)
-        done      (into #{} (map :var) finished)
-        timed-out (->> running-vars
-                       (filter #(= test-ns (:ns (meta %))))
-                       (remove done)
-                       (sort-by symbol)
-                       (mapv #(timed-out-var-result % now-ms)))
-        fixture?  (empty? timed-out)
-        results   (into finished timed-out)]
-    (merge context
-           (cond-> (assertion-counts results)
-             fixture? (-> (update :test-count inc)
-                          (update :error-count inc)))
-           {:ns                    test-ns
-            :duration-ms           (duration-since context now-ms)
-            :results               results
-            :timed-out-in-fixture? fixture?})))
+(defn- partial-ns-result [test-ns ended? now-ms]
+  (let [context      (::context (meta test-ns))
+        timed-out    (->> (:running-vars context)
+                          (sort-by symbol)
+                          (mapv #(timed-out-var-result % now-ms)))
+        outside-var? (and (empty? timed-out) (not ended?))
+        errors       (cond-> (count timed-out) outside-var? inc)]
+    (-> context
+        (update :results into timed-out)
+        (update :test-count + errors)
+        (update :error-count + errors)
+        (assoc :ns                     test-ns
+               :duration-ms            (- now-ms (:start-time-ms context))
+               :timed-out-outside-var? outside-var?))))
 
 (defn- try-write! [description f]
   (try
@@ -187,26 +183,28 @@
 (defn write-partial-results!
   "Write the JUnit output for a test run that has not finished, and the var-less errors collected so far. Each
   running namespace gets its file with its finished vars, and each running var as a `<testcase>` with a \"timed out\"
-  error. A running namespace with no running var hung in a fixture, so it gets one `<testcase>` with no `classname`
-  and a \"timed out\" error. Does nothing after `:summary`. Called by the shutdown hook."
+  error. A running namespace with no running var hung outside a test var (for example in a fixture), so it gets one
+  `<testcase>` with no `classname` and a \"timed out\" error. Does nothing after `:summary`. Called by the shutdown
+  hook."
   []
-  (when-not (:finished? @running)
+  (when-let [{:keys [namespaces]} (finish-run! :shutdown-hook)]
     (try-write! "queued namespace results" #(write/wait-for-writes-to-finish 2))
-    (let [{:keys [namespaces vars]} @running
-          now-ms                    (System/currentTimeMillis)]
-      (doseq [test-ns (sort-by ns-name namespaces)
-              :when   (::context (meta test-ns))]
+    (let [now-ms (System/currentTimeMillis)]
+      (doseq [test-ns (sort-by ns-name namespaces)]
         (try-write! (str "partial results for " (ns-name test-ns))
-                    #(write/write-ns-result-now! (partial-ns-result test-ns vars now-ms))))
+                    #(write/write-ns-result! (partial-ns-result test-ns
+                                                                (not (contains? (:namespaces @running) test-ns))
+                                                                now-ms))))
       (try-write! "var-less errors" #(write/write-var-less-errors! @var-less-errors)))))
 
-(defonce ^:private shutdown-hook (atom nil))
+(defn- add-shutdown-hook! ^Thread []
+  (doto (Thread. ^Runnable write-partial-results! "hawk JUnit shutdown writer")
+    (->> (.addShutdownHook (Runtime/getRuntime)))))
 
-(defn install-shutdown-hook!
+(defonce ^:private shutdown-hook (delay (add-shutdown-hook!)))
+
+(defn- install-shutdown-hook!
   "Install a JVM shutdown hook that calls [[write-partial-results!]], so a test run killed by SIGTERM or SIGINT (for
   example by a CI timeout) still writes JUnit output for the tests that were running. Installs the hook only once."
   []
-  (when-not @shutdown-hook
-    (let [hook (Thread. ^Runnable write-partial-results! "hawk JUnit shutdown writer")]
-      (when (compare-and-set! shutdown-hook nil hook)
-        (.addShutdownHook (Runtime/getRuntime) hook)))))
+  @shutdown-hook)

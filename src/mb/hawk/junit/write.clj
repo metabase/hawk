@@ -168,8 +168,8 @@
   "timed out")
 
 (defn- timeout-error-text [{:keys [duration-ms]}]
-  (format "The test was still running when the JVM got a shutdown signal, after %.1f seconds."
-          (/ (or duration-ms 0) 1000.0)))
+  (format "The test was still running when the JVM shut down, after %.1f seconds."
+          (/ duration-ms 1000.0)))
 
 (defn- write-timeout-error! [^XMLStreamWriter w result]
   (write-element!
@@ -184,13 +184,10 @@
   [w result]
   (write-timeout-error! w result))
 
-(defn- timed-out-fixture-name [test-ns]
-  (format "timed out in :once fixture (%s)" (ns-name test-ns)))
-
-(defn- write-timed-out-fixture! [^XMLStreamWriter w {test-ns :ns, :as result}]
+(defn- write-timed-out-outside-var! [^XMLStreamWriter w {test-ns :ns, :as result}]
   (write-element!
    w "testcase"
-   {:name (timed-out-fixture-name test-ns)
+   {:name (format "timed out outside a test var (%s)" (ns-name test-ns))
     :time (/ (:duration-ms result) 1000.0)}
    (fn []
      (write-timeout-error! w result))))
@@ -220,8 +217,8 @@
       (fn []
         (doseq [var-result (:results result)]
           (write-var-result! w var-result))
-        (when (:timed-out-in-fixture? result)
-          (write-timed-out-fixture! w result))))
+        (when (:timed-out-outside-var? result)
+          (write-timed-out-outside-var! w result))))
      (catch Throwable e
        (throw (ex-info (str "Error writing XML for test namespace result: " (ex-message e))
                        {:result result}
@@ -292,11 +289,6 @@
            (write-var-less-error!* w error))))
       (.writeEndDocument w))))
 
-(defn write-ns-result-now!
-  "Write the JUnit output for the tests in a namespace at once, in the current thread."
-  [result]
-  (write-ns-result!* result))
-
 (defonce ^:private thread-pool (atom nil))
 
 (defn create-thread-pool!
@@ -315,7 +307,7 @@
 (defn write-ns-result!
   "Submit a background thread task to write the JUnit output for the tests in a namespace when an `:end-test-ns` event
   is encountered. When there is no thread pool, or it no longer takes tasks (the shutdown hook stopped it), write the
-  output in the current thread instead."
+  output in the current thread instead. The shutdown hook uses this after it stopped the pool."
   [result]
   (let [^ThreadPoolExecutor pool @thread-pool
         ^Callable thunk          (fn []

@@ -88,29 +88,84 @@
              (is (= {:tests "1", :failures "0", :errors "1"}
                     (select-keys (:attrs suite) [:tests :failures :errors])))
              (is (not (contains? (:attrs fixture-case) :classname)))
-             (is (= "timed out in :once fixture (mb.hawk.junit-test.ns-b)" (get-in fixture-case [:attrs :name])))
+             (is (= "timed out outside a test var (mb.hawk.junit-test.ns-b)" (get-in fixture-case [:attrs :name])))
              (is (= "timed out" (-> (elements :error fixture-case) first :attrs :message)))))))
       (finally
         (remove-ns (ns-name ns-a))
         (remove-ns (ns-name ns-b))))))
 
-(deftest write-partial-results-skips-vars-already-in-ns-results-test
-  (let [[fake [fake-var]] (fake-ns 'mb.hawk.junit-test.ns-c '[done-test])]
+(deftest end-test-ns-after-shutdown-hook-does-not-write-test
+  (let [[fake [fake-var]] (fake-ns 'mb.hawk.junit-test.ns-c '[slow-test])]
     (try
       (do-with-isolated-junit-state
        (fn [dir]
          (event! {:type :begin-test-ns, :ns fake})
          (event! {:type :begin-test-var, :var fake-var})
-         (event! {:type :end-test-var, :var fake-var})
-         (swap! @#'hawk.junit/running update :vars conj fake-var)
          (hawk.junit/write-partial-results!)
-         (testing "a var that is still in the running set but already finished is written once, with no timeout error"
-           (let [cases (testcases (parse-file dir "mb.hawk.junit_test.ns_c.xml"))]
-             (is (= ["done-test" "timed out in :once fixture (mb.hawk.junit-test.ns-c)"]
-                    (map (comp :name :attrs) cases)))
-             (is (empty? (:content (first cases))))))))
+         (event! {:type :end-test-var, :var fake-var})
+         (event! {:type :end-test-ns, :ns fake})
+         (testing "a namespace that ends while the hook runs is left to the hook, so its file has one writer"
+           (is (= "timed out"
+                  (-> (parse-file dir "mb.hawk.junit_test.ns_c.xml") testcases first
+                      (->> (elements :error)) first :attrs :message))))))
       (finally
         (remove-ns (ns-name fake))))))
+
+(deftest end-test-ns-while-shutdown-hook-waits-test
+  (let [[fake [fake-var]] (fake-ns 'mb.hawk.junit-test.ns-j '[slow-test])
+        waiting           (promise)
+        release           (promise)]
+    (try
+      (do-with-isolated-junit-state
+       (fn [dir]
+         (event! {:type :begin-test-ns, :ns fake})
+         (event! {:type :begin-test-var, :var fake-var})
+         (with-redefs [write/wait-for-writes-to-finish (fn [_]
+                                                         (deliver waiting true)
+                                                         @release)]
+           (let [hook (future (hawk.junit/write-partial-results!))]
+             @waiting
+             (event! {:type :end-test-var, :var fake-var})
+             (event! {:type :end-test-ns, :ns fake})
+             (deliver release true)
+             @hook))
+         (testing "a namespace that ends while the hook waits is written by the hook, with no timeout error"
+           (is (= ["slow-test"]
+                  (map (comp :name :attrs) (testcases (parse-file dir "mb.hawk.junit_test.ns_j.xml"))))))))
+      (finally
+        (remove-ns (ns-name fake))))))
+
+(deftest end-test-ns-after-summary-still-writes-test
+  (let [[fake _] (fake-ns 'mb.hawk.junit-test.ns-k [])]
+    (try
+      (do-with-isolated-junit-state
+       (fn [dir]
+         (event! {:type :summary})
+         (event! {:type :begin-test-ns, :ns fake})
+         (event! {:type :end-test-ns, :ns fake})
+         (testing "after a nested run's :summary, the outer run still writes its namespace files"
+           (is (some? (parse-file dir "mb.hawk.junit_test.ns_k.xml"))))))
+      (finally
+        (remove-ns (ns-name fake))))))
+
+(deftest summary-after-shutdown-hook-does-not-write-test
+  (do-with-isolated-junit-state
+   (fn [_]
+     (let [calls (atom 0)]
+       (with-redefs [write/write-var-less-errors! (fn [_] (swap! calls inc))]
+         (hawk.junit/write-partial-results!)
+         (event! {:type :summary}))
+       (testing "only the first of the hook and :summary writes the var-less errors"
+         (is (= 1 @calls)))))))
+
+(deftest write-partial-results-runs-once-test
+  (do-with-isolated-junit-state
+   (fn [_]
+     (let [calls (atom 0)]
+       (with-redefs [write/write-var-less-errors! (fn [_] (swap! calls inc))]
+         (hawk.junit/write-partial-results!)
+         (hawk.junit/write-partial-results!))
+       (is (= 1 @calls))))))
 
 (deftest write-partial-results-after-summary-test
   (let [[fake [fake-var]] (fake-ns 'mb.hawk.junit-test.ns-d '[some-test])]
@@ -137,7 +192,7 @@
 (deftest write-partial-results-continues-after-a-failed-write-test
   (let [[ns-e [var-e]] (fake-ns 'mb.hawk.junit-test.ns-e '[stuck-test])
         [ns-i [var-i]] (fake-ns 'mb.hawk.junit-test.ns-i '[other-stuck-test])
-        write-now      write/write-ns-result-now!]
+        write-now      write/write-ns-result!]
     (try
       (do-with-isolated-junit-state
        (fn [dir]
@@ -147,10 +202,10 @@
          (event! {:type :begin-test-var, :var var-i})
          (event! {:type :error, :message "fixture boom", :actual (ex-info "boom" {})})
          (binding [*err* (java.io.StringWriter.)]
-           (with-redefs [write/write-ns-result-now! (fn [result]
-                                                      (if (= ns-e (:ns result))
-                                                        (throw (ex-info "disk full" {}))
-                                                        (write-now result)))]
+           (with-redefs [write/write-ns-result! (fn [result]
+                                                  (if (= ns-e (:ns result))
+                                                    (throw (ex-info "disk full" {}))
+                                                    (write-now result)))]
              (hawk.junit/write-partial-results!))
            (testing "the failure is reported on stderr"
              (is (re-find #"could not write partial results for mb.hawk.junit-test.ns-e on shutdown: disk full"
@@ -164,18 +219,23 @@
         (remove-ns (ns-name ns-i))))))
 
 (deftest install-shutdown-hook-test
-  (let [hook (atom nil)]
+  (let [calls (atom 0)
+        hook  (delay
+                (swap! calls inc)
+                (#'hawk.junit/add-shutdown-hook!))]
     (with-redefs [hawk.junit/shutdown-hook hook]
-      (hawk.junit/install-shutdown-hook!)
-      (let [installed @hook]
-        (try
-          (testing "the hook is installed"
-            (is (instance? Thread installed)))
-          (testing "a second call does not install another hook"
-            (hawk.junit/install-shutdown-hook!)
-            (is (identical? installed @hook)))
-          (finally
-            (.removeShutdownHook (Runtime/getRuntime) ^Thread installed)))))))
+      (do-with-isolated-junit-state
+       (fn [_]
+         (try
+           (event! {:type :begin-test-run})
+           (event! {:type :begin-test-run})
+           (testing "the first :begin-test-run installs the hook"
+             (is (instance? Thread @hook)))
+           (testing "a second run does not install another hook"
+             (is (= 1 @calls)))
+           (finally
+             (.removeShutdownHook (Runtime/getRuntime) ^Thread @hook)
+             (write/wait-for-writes-to-finish))))))))
 
 (defn- fake-ns-result [fake]
   {:ns fake, :duration-ms 0, :timestamp "now", :test-count 0, :error-count 0, :failure-count 0, :results []})
@@ -250,7 +310,7 @@
               doall
               (run! deref))
          (testing "every var that has not ended is still running, and no other var is"
-           (is (= (set still-going) (:vars @@#'hawk.junit/running))))
+           (is (= (set still-going) (get-in (meta fake) [::hawk.junit/context :running-vars]))))
          (testing "every ended var is in the namespace results"
            (is (= (set ended) (set (map :var (get-in (meta fake) [::hawk.junit/context :results]))))))))
       (finally
