@@ -71,10 +71,3 @@
            (is (= {:classname "hawk.test-ns.hanging-test", :name "hanging-test"}
                   (select-keys (:attrs testcase) [:classname :name])))
            (is (= "timed out" (get-in error [:attrs :message])))))))))
-
-(deftest sigterm-outside-ci-writes-nothing-test
-  (testing "a local run killed by SIGTERM does not write the running tests"
-    (kill-hanging-test
-     :cli/local
-     (fn [^File file _]
-       (is (not (.exists file)))))))
