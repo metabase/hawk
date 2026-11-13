@@ -8,7 +8,7 @@
    [clojure.string :as str]
    [pjstadig.print :as p])
   (:import
-   (java.util.concurrent Executors ThreadFactory ThreadPoolExecutor TimeUnit)
+   (java.util.concurrent Executors RejectedExecutionException ThreadFactory ThreadPoolExecutor TimeUnit)
    (javax.xml.stream XMLOutputFactory XMLStreamWriter)
    (org.apache.commons.io FileUtils)))
 
@@ -163,35 +163,71 @@
                       {:result result}
                       e)))))
 
+(def ^:private shutdown-message
+  "The test was still running when the JVM shut down")
+
+(defn- shutdown-error-text [{:keys [duration-ms]}]
+  (format "%s, after %.1f seconds." shutdown-message (/ duration-ms 1000.0)))
+
+(defn- write-shutdown-error! [^XMLStreamWriter w result]
+  (write-element!
+   w "error"
+   {:message shutdown-message
+    :type    "mb.hawk.Shutdown"}
+   (fn []
+     (.writeCharacters w "\n")
+     (.writeCData w (shutdown-error-text result)))))
+
+(defmethod write-assertion-result!* :shutdown
+  [w result]
+  (write-shutdown-error! w result))
+
+(defn- write-running-outside-var! [^XMLStreamWriter w {test-ns :ns, :as result}]
+  (write-element!
+   w "testcase"
+   {:name (format "still running outside a test var (%s)" (ns-name test-ns))
+    :time (/ (:duration-ms result) 1000.0)}
+   (fn []
+     (write-shutdown-error! w result))))
+
 ;; write one output file for each test namespace.
 
-(defn- write-ns-result!*
-  ([{test-namespace :ns, :as result}]
-   (let [filename (str (munge (ns-name (the-ns test-namespace))) ".xml")]
-     (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
-                                           (io/writer (io/file output-dir filename)
-                                                      :encoding "UTF-8"))]
-       (.writeStartDocument w)
-       (write-ns-result!* w result)
-       (.writeEndDocument w))))
+(defn- write-file!
+  "Write the JUnit file `filename` in the output dir. `f` is called with the `XMLStreamWriter`."
+  [filename f]
+  (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
+                                        (io/writer (io/file output-dir filename)
+                                                   :encoding "UTF-8"))]
+    (.writeStartDocument w)
+    (f w)
+    (.writeEndDocument w)))
 
-  ([w {test-namespace :ns, :as result}]
-   (try
-     (write-element!
-      w "testsuite"
-      {:name      (name (ns-name test-namespace))
-       :time      (/ (:duration-ms result) 1000.0)
-       :timestamp (str (:timestamp result))
-       :tests     (:test-count result)
-       :errors    (:error-count result)
-       :failures  (:failure-count result)}
-      (fn []
-        (doseq [result (:results result)]
-          (write-var-result! w result))))
-     (catch Throwable e
-       (throw (ex-info (str "Error writing XML for test namespace result: " (ex-message e))
-                       {:result result}
-                       e))))))
+(defn- write-ns-result!*
+  [w {test-namespace :ns, :as result}]
+  (try
+    (write-element!
+     w "testsuite"
+     {:name      (name (ns-name test-namespace))
+      :time      (/ (:duration-ms result) 1000.0)
+      :timestamp (str (:timestamp result))
+      :tests     (:test-count result)
+      :errors    (:error-count result)
+      :failures  (:failure-count result)}
+     (fn []
+       (doseq [var-result (:results result)]
+         (write-var-result! w var-result))
+       (when (:running-outside-var? result)
+         (write-running-outside-var! w result))))
+    (catch Throwable e
+      (throw (ex-info (str "Error writing XML for test namespace result: " (ex-message e))
+                      {:result result}
+                      e)))))
+
+(defn write-ns-file!
+  "Write the JUnit file for the tests in a namespace in the current thread."
+  [{test-namespace :ns, :as result}]
+  (write-file! (str (munge (ns-name (the-ns test-namespace))) ".xml")
+               #(write-ns-result!* % result)))
 
 ;;;; Var-less errors
 ;;;;
@@ -243,20 +279,44 @@
   nothing when `errors` is empty."
   [errors]
   (when (seq errors)
-    (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
-                                          (io/writer (io/file output-dir "mb_hawk_var_less_errors.xml")
-                                                     :encoding "UTF-8"))]
-      (.writeStartDocument w)
-      (write-element!
-       w "testsuite"
-       {:name     "mb.hawk.var-less-errors"
-        :tests    (count errors)
-        :errors   (count errors)
-        :failures 0}
-       (fn []
-         (doseq [error errors]
-           (write-var-less-error!* w error))))
-      (.writeEndDocument w))))
+    (write-file!
+     "mb_hawk_var_less_errors.xml"
+     (fn [w]
+       (write-element!
+        w "testsuite"
+        {:name     "mb.hawk.var-less-errors"
+         :tests    (count errors)
+         :errors   (count errors)
+         :failures 0}
+        (fn []
+          (doseq [error errors]
+            (write-var-less-error!* w error))))))))
+
+;;;; Vars that did not start
+
+(defn- write-not-started-vars!* [w test-vars]
+  (write-element!
+   w "testsuite"
+   {:name     "mb.hawk.not-started"
+    :tests    (count test-vars)
+    :skipped  (count test-vars)
+    :errors   0
+    :failures 0}
+   (fn []
+     (doseq [test-var test-vars]
+       (write-element!
+        w "testcase"
+        {:classname (name (ns-name (:ns (meta test-var))))
+         :name      (name (symbol test-var))}
+        (fn []
+          (write-element! w "skipped" {:message "The test did not start before the JVM shut down"} (constantly nil))))))))
+
+(defn write-not-started-vars!
+  "Write the `test-vars` that did not start before the JVM shut down to their own JUnit file, each as a `<testcase>`
+  with a `<skipped>` element. Does nothing when `test-vars` is empty."
+  [test-vars]
+  (when (seq test-vars)
+    (write-file! "mb_hawk_not_started.xml" #(write-not-started-vars!* % test-vars))))
 
 (defonce ^:private thread-pool (atom nil))
 
@@ -275,17 +335,23 @@
 
 (defn write-ns-result!
   "Submit a background thread task to write the JUnit output for the tests in a namespace when an `:end-test-ns` event
-  is encountered."
+  is encountered. Does nothing when there is no thread pool, or it no longer takes tasks (the shutdown hook stopped
+  it)."
   [result]
-  (when @thread-pool
+  (when-let [^ThreadPoolExecutor pool @thread-pool]
     (let [^Callable thunk (fn []
-                            (write-ns-result!* result))]
-      (.submit ^ThreadPoolExecutor @thread-pool thunk))))
+                            (write-ns-file! result))]
+      (try
+        (.submit pool thunk)
+        (catch RejectedExecutionException _
+          nil)))))
 
 (defn wait-for-writes-to-finish
-  "Wait up to 10 seconds for the thread pool that writes results to finish."
-  []
-  (when @thread-pool
-    (.shutdown ^ThreadPoolExecutor @thread-pool)
-    (.awaitTermination ^ThreadPoolExecutor @thread-pool 10 TimeUnit/SECONDS)
-    (reset! thread-pool nil)))
+  "Wait up to `timeout-seconds` (default 10) for the thread pool that writes results to finish."
+  ([]
+   (wait-for-writes-to-finish 10))
+  ([timeout-seconds]
+   (when-let [^ThreadPoolExecutor pool @thread-pool]
+     (.shutdown pool)
+     (.awaitTermination pool timeout-seconds TimeUnit/SECONDS)
+     (reset! thread-pool nil))))
