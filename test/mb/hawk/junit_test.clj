@@ -19,8 +19,8 @@
        (str/join File/pathSeparator)))
 
 (defn- start-hawk
-  "Start hawk in a new JVM in `dir`, running only the tests in `a-ns`."
-  ^Process [^File dir a-ns]
+  "Start hawk in a new JVM in `dir` in `mode`, running only the tests in `a-ns`."
+  ^Process [^File dir mode a-ns]
   (-> (ProcessBuilder. ^"[Ljava.lang.String;"
                        (into-array String
                                    [(str (System/getProperty "java.home") "/bin/java")
@@ -28,7 +28,7 @@
                                     "clojure.main"
                                     "-e" (pr-str `(do (require 'mb.hawk.core)
                                                       (mb.hawk.core/find-and-run-tests-cli
-                                                       {:only '[~a-ns], :mode :cli/ci})))]))
+                                                       {:only '[~a-ns], :mode ~mode})))]))
       (.directory dir)
       (.redirectErrorStream true)
       (.redirectOutput (io/file dir "output.txt"))
@@ -42,24 +42,39 @@
         (> (System/currentTimeMillis) deadline)    false
         :else                                      (do (Thread/sleep 100) (recur))))))
 
+(defn- kill-hanging-test
+  "Run the hanging test namespace in a new JVM in `mode`, send SIGTERM once the test hangs, and call `f` with the
+  JUnit file for that namespace."
+  [mode f]
+  (let [dir     (.toFile (Files/createTempDirectory "hawk-junit-test" (make-array FileAttribute 0)))
+        process (start-hawk dir mode 'hawk.test-ns.hanging-test)]
+    (try
+      (is (wait-for-file (io/file dir "hanging") 120000)
+          "the test started to hang")
+      (.destroy process)
+      (is (.waitFor process 60 TimeUnit/SECONDS)
+          "the JVM shut down")
+      (f (io/file dir "target/junit/hawk.test_ns.hanging_test.xml") (io/file dir "output.txt"))
+      (finally
+        (.destroyForcibly process)
+        (FileUtils/deleteDirectory dir)))))
+
 (deftest sigterm-writes-running-tests-test
-  (testing "a run killed by SIGTERM while a test hangs writes that test as timed out"
-    (let [dir     (.toFile (Files/createTempDirectory "hawk-junit-test" (make-array FileAttribute 0)))
-          process (start-hawk dir 'hawk.test-ns.hanging-test)]
-      (try
-        (is (wait-for-file (io/file dir "hanging") 120000)
-            "the test started to hang")
-        (.destroy process)
-        (is (.waitFor process 60 TimeUnit/SECONDS)
-            "the JVM shut down")
-        (let [file (io/file dir "target/junit/hawk.test_ns.hanging_test.xml")]
-          (is (.exists file) (slurp (io/file dir "output.txt")))
-          (when (.exists file)
-            (let [[testcase] (filter #(= :testcase (:tag %)) (:content (xml/parse file)))
-                  [error]    (filter #(= :error (:tag %)) (:content testcase))]
-              (is (= {:classname "hawk.test-ns.hanging-test", :name "hanging-test"}
-                     (select-keys (:attrs testcase) [:classname :name])))
-              (is (= "timed out" (get-in error [:attrs :message]))))))
-        (finally
-          (.destroyForcibly process)
-          (FileUtils/deleteDirectory dir))))))
+  (testing "a CI run killed by SIGTERM while a test hangs writes that test as timed out"
+    (kill-hanging-test
+     :cli/ci
+     (fn [^File file output]
+       (is (.exists file) (slurp output))
+       (when (.exists file)
+         (let [[testcase] (filter #(= :testcase (:tag %)) (:content (xml/parse file)))
+               [error]    (filter #(= :error (:tag %)) (:content testcase))]
+           (is (= {:classname "hawk.test-ns.hanging-test", :name "hanging-test"}
+                  (select-keys (:attrs testcase) [:classname :name])))
+           (is (= "timed out" (get-in error [:attrs :message])))))))))
+
+(deftest sigterm-outside-ci-writes-nothing-test
+  (testing "a local run killed by SIGTERM does not write the running tests"
+    (kill-hanging-test
+     :cli/local
+     (fn [^File file _]
+       (is (not (.exists file)))))))

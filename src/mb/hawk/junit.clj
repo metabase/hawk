@@ -57,11 +57,8 @@
 (defmethod handle-event!* :default
   [_])
 
-(declare install-shutdown-hook!)
-
 (defmethod handle-event!* :begin-test-run
   [_]
-  (install-shutdown-hook!)
   (write/clean-output-dir!)
   (reset! var-less-errors [])
   (reset! running initial-running-state)
@@ -219,7 +216,7 @@
 
 (defonce ^:private shutdown-hook (delay (add-shutdown-hook!)))
 
-(defn- install-shutdown-hook!
+(defn install-shutdown-hook!
   "Install a JVM shutdown hook that calls [[write-partial-results!]], so a test run killed by SIGTERM or SIGINT (for
   example by a CI timeout) still writes JUnit output for the tests that were running. Installs the hook only once."
   []

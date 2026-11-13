@@ -245,6 +245,8 @@
   (let [start-time-ms   (System/currentTimeMillis)
         options         (normalize-options options)
         test-vars       (find-tests-with-options options)
+        _               (when (= :cli/ci (:mode options))
+                          (hawk.junit/install-shutdown-hook!))
         _               (hawk.hooks/before-run options)
         [summary fail?] (try
                           (let [summary (if-let [n (get options :times)]
