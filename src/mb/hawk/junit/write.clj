@@ -289,6 +289,11 @@
            (write-var-less-error!* w error))))
       (.writeEndDocument w))))
 
+(defn write-ns-result-now!
+  "Write the JUnit output for the tests in a namespace in the current thread. The shutdown hook uses this."
+  [result]
+  (write-ns-result!* result))
+
 (defonce ^:private thread-pool (atom nil))
 
 (defn create-thread-pool!
@@ -306,18 +311,16 @@
 
 (defn write-ns-result!
   "Submit a background thread task to write the JUnit output for the tests in a namespace when an `:end-test-ns` event
-  is encountered. When there is no thread pool, or it no longer takes tasks (the shutdown hook stopped it), write the
-  output in the current thread instead. The shutdown hook uses this after it stopped the pool."
+  is encountered. Does nothing when there is no thread pool, or it no longer takes tasks (the shutdown hook stopped
+  it)."
   [result]
-  (let [^ThreadPoolExecutor pool @thread-pool
-        ^Callable thunk          (fn []
-                                   (write-ns-result!* result))]
-    (if-not pool
-      (write-ns-result!* result)
+  (when-let [^ThreadPoolExecutor pool @thread-pool]
+    (let [^Callable thunk (fn []
+                            (write-ns-result!* result))]
       (try
         (.submit pool thunk)
         (catch RejectedExecutionException _
-          (write-ns-result!* result))))))
+          nil)))))
 
 (defn wait-for-writes-to-finish
   "Wait up to `timeout-seconds` (default 10) for the thread pool that writes results to finish."

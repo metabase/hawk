@@ -2,7 +2,10 @@
   (:require
    [clojure.test :as t]
    [mb.eftest.report :as eftest.report]
-   [mb.hawk.junit.write :as write]))
+   [mb.hawk.junit.write :as write])
+  (:import
+   (java.util.concurrent TimeUnit)
+   (java.util.concurrent.locks ReentrantReadWriteLock)))
 
 (set! *warn-on-reflection* true)
 
@@ -12,10 +15,16 @@
 (defonce ^:private var-less-errors (atom []))
 
 (def ^:private initial-running-state
-  {:namespaces  #{}
-   :finished-by nil})
+  {:namespaces #{}
+   :finished?  false})
 
 (defonce ^:private running (atom initial-running-state))
+
+(defonce ^:private ^ReentrantReadWriteLock event-lock (ReentrantReadWriteLock.))
+
+(defonce ^:private stopped? (atom false))
+
+(def ^:private stop-events-timeout-ms 1000)
 
 (defmulti ^:private handle-event!*
   {:arglists '([event])}
@@ -31,27 +40,24 @@
                   {:var test-var}
                   event
                   (when test-var
-                    {:ns (:ns (meta test-var))}))]
+                    {:ns (:ns (meta test-var))}))
+        lock     (.readLock event-lock)]
+    (.lock lock)
     (try
-      (handle-event!* event)
+      (when-not @stopped?
+        (handle-event!* event))
       (catch Throwable e
         (throw (ex-info (str "Error handling event: " (ex-message e))
                         {:event event}
-                        e))))))
+                        e)))
+      (finally
+        (.unlock lock)))))
 
 ;; for unknown event types (e.g. `:clojure.test.check.clojure-test/trial`) just ignore them.
 (defmethod handle-event!* :default
   [_])
 
 (declare install-shutdown-hook!)
-
-(defn- finish-run!
-  "Mark the run as finished by `who` (`:summary` or `:shutdown-hook`). Returns the running state from before, or nil
-  when the run was already finished, so that only the first of `:summary` and the shutdown hook writes."
-  [who]
-  (let [[old] (swap-vals! running assoc :finished-by who)]
-    (when-not (:finished-by old)
-      old)))
 
 (defmethod handle-event!* :begin-test-run
   [_]
@@ -63,8 +69,8 @@
 
 (defmethod handle-event!* :summary
   [_]
-  (when (finish-run! :summary)
-    (write/write-var-less-errors! @var-less-errors))
+  (swap! running assoc :finished? true)
+  (write/write-var-less-errors! @var-less-errors)
   (write/wait-for-writes-to-finish))
 
 (defmethod handle-event!* :begin-test-ns
@@ -87,8 +93,8 @@
                  event
                  context
                  {:duration-ms (- (System/currentTimeMillis) (:start-time-ms context))})]
-    (when-not (= :shutdown-hook (:finished-by (first (swap-vals! running update :namespaces disj test-ns))))
-      (write/write-ns-result! result))))
+    (swap! running update :namespaces disj test-ns)
+    (write/write-ns-result! result)))
 
 (defmethod handle-event!* :begin-test-var
   [{test-ns :ns, test-var :var}]
@@ -158,12 +164,12 @@
                :duration-ms duration-ms)
         (update :results conj {:type :timeout, :duration-ms duration-ms}))))
 
-(defn- partial-ns-result [test-ns ended? now-ms]
+(defn- partial-ns-result [test-ns now-ms]
   (let [context      (::context (meta test-ns))
         timed-out    (->> (:running-vars context)
                           (sort-by symbol)
                           (mapv #(timed-out-var-result % now-ms)))
-        outside-var? (and (empty? timed-out) (not ended?))
+        outside-var? (empty? timed-out)
         errors       (cond-> (count timed-out) outside-var? inc)]
     (-> context
         (update :results into timed-out)
@@ -180,21 +186,31 @@
       (binding [*out* *err*]
         (println (format "hawk: could not write %s on shutdown: %s" description (ex-message e)))))))
 
+(defn- stop-events!
+  "Drop all later events, then wait up to `stop-events-timeout-ms` for the event handlers in progress to finish."
+  []
+  (reset! stopped? true)
+  (let [lock (.writeLock event-lock)]
+    (if (.tryLock lock stop-events-timeout-ms TimeUnit/MILLISECONDS)
+      (.unlock lock)
+      (binding [*out* *err*]
+        (println (format "hawk: event handlers did not finish in %d ms on shutdown; writing JUnit output anyway"
+                         stop-events-timeout-ms))))))
+
 (defn write-partial-results!
   "Write the JUnit output for a test run that has not finished, and the var-less errors collected so far. Each
   running namespace gets its file with its finished vars, and each running var as a `<testcase>` with a \"timed out\"
   error. A running namespace with no running var hung outside a test var (for example in a fixture), so it gets one
-  `<testcase>` with no `classname` and a \"timed out\" error. Does nothing after `:summary`. Called by the shutdown
-  hook."
+  `<testcase>` with no `classname` and a \"timed out\" error. Stops event handling first, so nothing changes the
+  state while it writes. Does nothing after `:summary`. Called by the shutdown hook."
   []
-  (when-let [{:keys [namespaces]} (finish-run! :shutdown-hook)]
+  (stop-events!)
+  (when-not (:finished? @running)
     (try-write! "queued namespace results" #(write/wait-for-writes-to-finish 2))
     (let [now-ms (System/currentTimeMillis)]
-      (doseq [test-ns (sort-by ns-name namespaces)]
+      (doseq [test-ns (sort-by ns-name (:namespaces @running))]
         (try-write! (str "partial results for " (ns-name test-ns))
-                    #(write/write-ns-result! (partial-ns-result test-ns
-                                                                (not (contains? (:namespaces @running) test-ns))
-                                                                now-ms))))
+                    #(write/write-ns-result-now! (partial-ns-result test-ns now-ms))))
       (try-write! "var-less errors" #(write/write-var-less-errors! @var-less-errors)))))
 
 (defn- add-shutdown-hook! ^Thread []
