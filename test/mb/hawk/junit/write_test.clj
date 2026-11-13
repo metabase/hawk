@@ -116,3 +116,30 @@
         (is (= :error error-tag))
         (is (= "clojure.lang.ExceptionInfo" (:type error-attrs)))
         (is (= "fixture boom" (:message error-attrs)))))))
+
+(defn- ns-result->suite
+  "Run `result` through the (private) namespace writer and parse the `<testsuite>` element it produces."
+  [result]
+  (let [sw                 (StringWriter.)
+        ^XMLStreamWriter w (.createXMLStreamWriter (XMLOutputFactory/newInstance) sw)]
+    (.writeStartDocument w)
+    (#'write/write-ns-result!* w result)
+    (.writeEndDocument w)
+    (.flush w)
+    (xml/parse (ByteArrayInputStream. (.getBytes (str sw) "UTF-8")))))
+
+(deftest timed-out-outside-var-testcase-test
+  (testing "a namespace that hung outside a test var is a <testcase> with NO classname and a timed out <error>"
+    (let [{:keys [content]} (ns-result->suite {:ns                     (the-ns 'mb.hawk.junit.write-test)
+                                               :duration-ms            1000
+                                               :timestamp              "2026-11-13T00:00:00Z"
+                                               :test-count             1
+                                               :error-count            1
+                                               :failure-count          0
+                                               :results                []
+                                               :timed-out-outside-var? true})
+          [{:keys [attrs], testcase-content :content}] (filter :tag content)]
+      (is (= "timed out outside a test var (mb.hawk.junit.write-test)" (:name attrs)))
+      (is (not (contains? attrs :classname)))
+      (is (= {:message "timed out", :type "mb.hawk.Timeout"}
+             (:attrs (first (filter :tag testcase-content))))))))
