@@ -56,39 +56,40 @@
     (try
       (do-with-isolated-junit-state
        (fn [dir]
-        (event! {:type :begin-test-ns, :ns ns-a})
-        (event! {:type :begin-test-var, :var finished-var})
-        (event! {:type :pass, :var finished-var})
-        (event! {:type :end-test-var, :var finished-var})
-        (event! {:type :begin-test-var, :var hung-var})
-        (event! (fail-event hung-var "failed before the hang"))
-        (event! {:type :begin-test-ns, :ns ns-b})
-        (hawk.junit/write-partial-results!)
-        (testing "the running namespace gets a file with only its finished vars"
-          (let [suite (parse-file dir "mb.hawk.junit_test.ns_a.xml")]
-            (is (= "mb.hawk.junit-test.ns-a" (get-in suite [:attrs :name])))
-            (is (= {:tests "1", :failures "0", :errors "0"}
-                   (select-keys (:attrs suite) [:tests :failures :errors])))
-            (is (= ["finished-test"] (map (comp :name :attrs) (testcases suite))))))
-        (testing "a running namespace with no vars yet still gets a file"
-          (is (some? (parse-file dir "mb.hawk.junit_test.ns_b.xml"))))
-        (let [suite                     (parse-file dir "mb_hawk_timeouts.xml")
-              [var-case fixture-case]   (testcases suite)]
-          (testing "the timeout file has one testcase for the hung var and one for the namespace in a fixture"
-            (is (= {:name "mb.hawk.timeouts", :tests "2", :errors "2", :failures "1"}
-                   (:attrs suite)))
-            (is (= 2 (count (testcases suite)))))
-          (testing "the running var is named by classname and name, with its assertions and a timed out error"
-            (is (= "mb.hawk.junit-test.ns-a" (get-in var-case [:attrs :classname])))
-            (is (= "hung-test" (get-in var-case [:attrs :name])))
-            (is (= "1" (get-in var-case [:attrs :assertions])))
-            (is (= "failed before the hang" (-> (elements :failure var-case) first :attrs :message)))
-            (is (= {:message "timed out", :type "mb.hawk.Timeout"}
-                   (-> (elements :error var-case) first :attrs))))
-          (testing "a namespace with no running var is a testcase with no classname"
-            (is (not (contains? (:attrs fixture-case) :classname)))
-            (is (= "timed out in :once fixture (mb.hawk.junit-test.ns-b)" (get-in fixture-case [:attrs :name])))
-            (is (= "timed out" (-> (elements :error fixture-case) first :attrs :message)))))))
+         (event! {:type :begin-test-ns, :ns ns-a})
+         (event! {:type :begin-test-var, :var finished-var})
+         (event! {:type :pass, :var finished-var})
+         (event! {:type :end-test-var, :var finished-var})
+         (event! {:type :begin-test-var, :var hung-var})
+         (event! (fail-event hung-var "failed before the hang"))
+         (event! {:type :begin-test-ns, :ns ns-b})
+         (hawk.junit/write-partial-results!)
+         (testing "no separate timeout file is written"
+           (is (nil? (parse-file dir "mb_hawk_timeouts.xml"))))
+         (let [suite                    (parse-file dir "mb.hawk.junit_test.ns_a.xml")
+               [finished-case hung-case] (testcases suite)]
+           (testing "the running namespace file has the finished var and the running var"
+             (is (= "mb.hawk.junit-test.ns-a" (get-in suite [:attrs :name])))
+             (is (= ["finished-test" "hung-test"] (map (comp :name :attrs) (testcases suite))))
+             (is (empty? (:content finished-case))))
+           (testing "the counts include the assertions of the running var and its timeout error"
+             (is (= {:tests "3", :failures "1", :errors "1"}
+                    (select-keys (:attrs suite) [:tests :failures :errors]))))
+           (testing "the running var is named by classname and name, with its assertions and a timed out error"
+             (is (= "mb.hawk.junit-test.ns-a" (get-in hung-case [:attrs :classname])))
+             (is (= "1" (get-in hung-case [:attrs :assertions])))
+             (is (= "failed before the hang" (-> (elements :failure hung-case) first :attrs :message)))
+             (is (= {:message "timed out", :type "mb.hawk.Timeout"}
+                    (-> (elements :error hung-case) first :attrs)))))
+         (let [suite          (parse-file dir "mb.hawk.junit_test.ns_b.xml")
+               [fixture-case] (testcases suite)]
+           (testing "a namespace with no running var gets one testcase with no classname"
+             (is (= 1 (count (testcases suite))))
+             (is (= {:tests "1", :failures "0", :errors "1"}
+                    (select-keys (:attrs suite) [:tests :failures :errors])))
+             (is (not (contains? (:attrs fixture-case) :classname)))
+             (is (= "timed out in :once fixture (mb.hawk.junit-test.ns-b)" (get-in fixture-case [:attrs :name])))
+             (is (= "timed out" (-> (elements :error fixture-case) first :attrs :message)))))))
       (finally
         (remove-ns (ns-name ns-a))
         (remove-ns (ns-name ns-b))))))
@@ -98,16 +99,16 @@
     (try
       (do-with-isolated-junit-state
        (fn [dir]
-        (event! {:type :begin-test-ns, :ns fake})
-        (event! {:type :begin-test-var, :var fake-var})
-        (event! {:type :end-test-var, :var fake-var})
-        (swap! @#'hawk.junit/running update :vars conj fake-var)
-        (hawk.junit/write-partial-results!)
-        (testing "a var that is still in the running set but already finished is not written as timed out"
-          (let [suite (parse-file dir "mb_hawk_timeouts.xml")]
-            (is (= [nil] (map (comp :classname :attrs) (testcases suite))))))
-        (testing "it is in the namespace file"
-          (is (= ["done-test"] (map (comp :name :attrs) (testcases (parse-file dir "mb.hawk.junit_test.ns_c.xml"))))))))
+         (event! {:type :begin-test-ns, :ns fake})
+         (event! {:type :begin-test-var, :var fake-var})
+         (event! {:type :end-test-var, :var fake-var})
+         (swap! @#'hawk.junit/running update :vars conj fake-var)
+         (hawk.junit/write-partial-results!)
+         (testing "a var that is still in the running set but already finished is written once, with no timeout error"
+           (let [cases (testcases (parse-file dir "mb.hawk.junit_test.ns_c.xml"))]
+             (is (= ["done-test" "timed out in :once fixture (mb.hawk.junit-test.ns-c)"]
+                    (map (comp :name :attrs) cases)))
+             (is (empty? (:content (first cases))))))))
       (finally
         (remove-ns (ns-name fake))))))
 
@@ -116,39 +117,51 @@
     (try
       (do-with-isolated-junit-state
        (fn [^java.io.File dir]
-        (event! {:type :begin-test-ns, :ns fake})
-        (event! {:type :begin-test-var, :var fake-var})
-        (event! {:type :summary})
-        (hawk.junit/write-partial-results!)
-        (testing "after :summary the run is finished, so nothing is written"
-          (is (empty? (.list dir))))))
+         (event! {:type :begin-test-ns, :ns fake})
+         (event! {:type :begin-test-var, :var fake-var})
+         (event! {:type :summary})
+         (hawk.junit/write-partial-results!)
+         (testing "after :summary the run is finished, so nothing is written"
+           (is (empty? (.list dir))))))
       (finally
         (remove-ns (ns-name fake))))))
 
 (deftest write-partial-results-writes-var-less-errors-test
   (do-with-isolated-junit-state
    (fn [dir]
-    (event! {:type :error, :message "fixture boom", :actual (ex-info "boom" {})})
-    (hawk.junit/write-partial-results!)
-    (testing "var-less errors collected so far are written"
-      (is (= 1 (count (testcases (parse-file dir "mb_hawk_var_less_errors.xml")))))))))
+     (event! {:type :error, :message "fixture boom", :actual (ex-info "boom" {})})
+     (hawk.junit/write-partial-results!)
+     (testing "var-less errors collected so far are written"
+       (is (= 1 (count (testcases (parse-file dir "mb_hawk_var_less_errors.xml")))))))))
 
 (deftest write-partial-results-continues-after-a-failed-write-test
-  (let [[fake [fake-var]] (fake-ns 'mb.hawk.junit-test.ns-e '[stuck-test])]
+  (let [[ns-e [var-e]] (fake-ns 'mb.hawk.junit-test.ns-e '[stuck-test])
+        [ns-i [var-i]] (fake-ns 'mb.hawk.junit-test.ns-i '[other-stuck-test])
+        write-now      write/write-ns-result-now!]
     (try
       (do-with-isolated-junit-state
        (fn [dir]
-        (event! {:type :begin-test-ns, :ns fake})
-        (event! {:type :begin-test-var, :var fake-var})
-        (binding [*err* (java.io.StringWriter.)]
-          (with-redefs [write/write-timeout-results! (fn [_] (throw (ex-info "disk full" {})))]
-            (hawk.junit/write-partial-results!))
-          (testing "the failure is reported on stderr"
-            (is (re-find #"could not write timed out tests on shutdown: disk full" (str *err*)))))
-        (testing "the namespace file is still written"
-          (is (some? (parse-file dir "mb.hawk.junit_test.ns_e.xml"))))))
+         (event! {:type :begin-test-ns, :ns ns-e})
+         (event! {:type :begin-test-var, :var var-e})
+         (event! {:type :begin-test-ns, :ns ns-i})
+         (event! {:type :begin-test-var, :var var-i})
+         (event! {:type :error, :message "fixture boom", :actual (ex-info "boom" {})})
+         (binding [*err* (java.io.StringWriter.)]
+           (with-redefs [write/write-ns-result-now! (fn [result]
+                                                      (if (= ns-e (:ns result))
+                                                        (throw (ex-info "disk full" {}))
+                                                        (write-now result)))]
+             (hawk.junit/write-partial-results!))
+           (testing "the failure is reported on stderr"
+             (is (re-find #"could not write partial results for mb.hawk.junit-test.ns-e on shutdown: disk full"
+                          (str *err*)))))
+         (testing "the other namespace file is still written"
+           (is (some? (parse-file dir "mb.hawk.junit_test.ns_i.xml"))))
+         (testing "the var-less errors are still written"
+           (is (some? (parse-file dir "mb_hawk_var_less_errors.xml"))))))
       (finally
-        (remove-ns (ns-name fake))))))
+        (remove-ns (ns-name ns-e))
+        (remove-ns (ns-name ns-i))))))
 
 (deftest install-shutdown-hook-test
   (let [hook (atom nil)]

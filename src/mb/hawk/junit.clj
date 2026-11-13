@@ -142,42 +142,40 @@
     (- now-ms start-time-ms)
     0))
 
-(defn- finished-assertion-counts [var-results]
+(defn- assertion-counts [var-results]
   (let [types (map :type (mapcat :results var-results))]
-    {:test-count    (count (filter #{:pass :fail :error} types))
+    {:test-count    (count (filter #{:pass :fail :error :timeout} types))
      :failure-count (count (filter #{:fail} types))
-     :error-count   (count (filter #{:error} types))}))
-
-(defn- partial-ns-result [test-ns now-ms]
-  (let [context (::context (meta test-ns))]
-    (merge context
-           (finished-assertion-counts (:results context))
-           {:ns          test-ns
-            :duration-ms (duration-since context now-ms)})))
-
-(defn- finished-vars [ns-result]
-  (into #{} (map :var) (:results ns-result)))
+     :error-count   (count (filter #{:error :timeout} types))}))
 
 (defn- timed-out-var-result [test-var now-ms]
-  (let [context (::context (meta test-var))]
-    (assoc context
-           :ns          (:ns (meta test-var))
-           :var         test-var
-           :duration-ms (duration-since context now-ms))))
+  (let [context     (::context (meta test-var))
+        duration-ms (duration-since context now-ms)]
+    (-> context
+        (assoc :ns          (:ns (meta test-var))
+               :var         test-var
+               :duration-ms duration-ms)
+        (update :results (fnil conj []) {:type :timeout, :duration-ms duration-ms}))))
 
-(defn- timed-out-results
-  [ns-results test-vars now-ms]
-  (let [finished  (into #{} (mapcat finished-vars) ns-results)
-        vars      (->> test-vars
-                       (remove finished)
+(defn- partial-ns-result [test-ns running-vars now-ms]
+  (let [context   (::context (meta test-ns))
+        finished  (:results context)
+        done      (into #{} (map :var) finished)
+        timed-out (->> running-vars
+                       (filter #(= test-ns (:ns (meta %))))
+                       (remove done)
                        (sort-by symbol)
                        (mapv #(timed-out-var-result % now-ms)))
-        busy-nses (into #{} (map :ns) vars)]
-    {:vars     vars
-     :fixtures (->> ns-results
-                    (remove #(busy-nses (:ns %)))
-                    (sort-by #(ns-name (:ns %)))
-                    (mapv #(select-keys % [:ns :duration-ms])))}))
+        fixture?  (empty? timed-out)
+        results   (into finished timed-out)]
+    (merge context
+           (cond-> (assertion-counts results)
+             fixture? (-> (update :test-count inc)
+                          (update :error-count inc)))
+           {:ns                    test-ns
+            :duration-ms           (duration-since context now-ms)
+            :results               results
+            :timed-out-in-fixture? fixture?})))
 
 (defn- try-write! [description f]
   (try
@@ -187,21 +185,19 @@
         (println (format "hawk: could not write %s on shutdown: %s" description (ex-message e)))))))
 
 (defn write-partial-results!
-  "Write the JUnit output for a test run that has not finished: each running namespace with its finished vars, each
-  running var as a \"timed out\" error in `mb_hawk_timeouts.xml`, and the var-less errors collected so far. Does
-  nothing after `:summary`. Called by the shutdown hook."
+  "Write the JUnit output for a test run that has not finished, and the var-less errors collected so far. Each
+  running namespace gets its file with its finished vars, and each running var as a `<testcase>` with a \"timed out\"
+  error. A running namespace with no running var hung in a fixture, so it gets one `<testcase>` with no `classname`
+  and a \"timed out\" error. Does nothing after `:summary`. Called by the shutdown hook."
   []
   (when-not (:finished? @running)
     (try-write! "queued namespace results" #(write/wait-for-writes-to-finish 2))
     (let [{:keys [namespaces vars]} @running
-          now-ms                    (System/currentTimeMillis)
-          ns-results                (->> namespaces
-                                         (filter #(::context (meta %)))
-                                         (mapv #(partial-ns-result % now-ms)))]
-      (try-write! "timed out tests" #(write/write-timeout-results! (timed-out-results ns-results vars now-ms)))
-      (doseq [ns-result ns-results]
-        (try-write! (str "partial results for " (ns-name (:ns ns-result)))
-                    #(write/write-ns-result-now! ns-result)))
+          now-ms                    (System/currentTimeMillis)]
+      (doseq [test-ns (sort-by ns-name namespaces)
+              :when   (::context (meta test-ns))]
+        (try-write! (str "partial results for " (ns-name test-ns))
+                    #(write/write-ns-result-now! (partial-ns-result test-ns vars now-ms))))
       (try-write! "var-less errors" #(write/write-var-less-errors! @var-less-errors)))))
 
 (defonce ^:private shutdown-hook (atom nil))

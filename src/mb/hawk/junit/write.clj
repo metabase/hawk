@@ -163,6 +163,38 @@
                       {:result result}
                       e)))))
 
+(def timeout-message
+  "The `message` of the `<error>` that marks a test as still running when the JVM shut down."
+  "timed out")
+
+(defn- timeout-error-text [{:keys [duration-ms]}]
+  (format "The test was still running when the JVM got a shutdown signal, after %.1f seconds."
+          (/ (or duration-ms 0) 1000.0)))
+
+(defn- write-timeout-error! [^XMLStreamWriter w result]
+  (write-element!
+   w "error"
+   {:message timeout-message
+    :type    "mb.hawk.Timeout"}
+   (fn []
+     (.writeCharacters w "\n")
+     (.writeCData w (timeout-error-text result)))))
+
+(defmethod write-assertion-result!* :timeout
+  [w result]
+  (write-timeout-error! w result))
+
+(defn- timed-out-fixture-name [test-ns]
+  (format "timed out in :once fixture (%s)" (ns-name test-ns)))
+
+(defn- write-timed-out-fixture! [^XMLStreamWriter w {test-ns :ns, :as result}]
+  (write-element!
+   w "testcase"
+   {:name (timed-out-fixture-name test-ns)
+    :time (/ (:duration-ms result) 1000.0)}
+   (fn []
+     (write-timeout-error! w result))))
+
 ;; write one output file for each test namespace.
 
 (defn- write-ns-result!*
@@ -186,8 +218,10 @@
        :errors    (:error-count result)
        :failures  (:failure-count result)}
       (fn []
-        (doseq [result (:results result)]
-          (write-var-result! w result))))
+        (doseq [var-result (:results result)]
+          (write-var-result! w var-result))
+        (when (:timed-out-in-fixture? result)
+          (write-timed-out-fixture! w result))))
      (catch Throwable e
        (throw (ex-info (str "Error writing XML for test namespace result: " (ex-message e))
                        {:result result}
@@ -256,73 +290,6 @@
        (fn []
          (doseq [error errors]
            (write-var-less-error!* w error))))
-      (.writeEndDocument w))))
-
-(def timeout-message
-  "The `message` of the `<error>` that marks a test as still running when the JVM shut down."
-  "timed out")
-
-(defn- timeout-error-text [{:keys [duration-ms]}]
-  (format "The test was still running when the JVM got a shutdown signal, after %.1f seconds."
-          (/ (or duration-ms 0) 1000.0)))
-
-(defn- write-timeout-error! [^XMLStreamWriter w result]
-  (write-element!
-   w "error"
-   {:message timeout-message
-    :type    "mb.hawk.Timeout"}
-   (fn []
-     (.writeCharacters w "\n")
-     (.writeCData w (timeout-error-text result)))))
-
-(defn- write-timed-out-var!* [^XMLStreamWriter w result]
-  (write-element!
-   w "testcase"
-   {:classname  (name (ns-name (:ns result)))
-    :name       (name (symbol (:var result)))
-    :time       (/ (:duration-ms result) 1000.0)
-    :assertions (:assertion-count result 0)}
-   (fn []
-     (doseq [assertion (:results result)]
-       (write-assertion-result! w assertion))
-     (write-timeout-error! w result))))
-
-(defn- timed-out-fixture-name [test-ns]
-  (format "timed out in :once fixture (%s)" (ns-name test-ns)))
-
-(defn- write-timed-out-fixture!* [^XMLStreamWriter w {test-ns :ns, :as result}]
-  (write-element!
-   w "testcase"
-   {:name (timed-out-fixture-name test-ns)
-    :time (/ (:duration-ms result) 1000.0)}
-   (fn []
-     (write-timeout-error! w result))))
-
-(defn- failed-var? [{:keys [results]}]
-  (boolean (some #(= :fail (:type %)) results)))
-
-(defn write-timeout-results!
-  "Write the tests that were still running when the JVM shut down to `mb_hawk_timeouts.xml`. Each running var in
-  `vars` becomes a `<testcase>` with its namespace as `classname`, the assertions it recorded, and an `<error>` with
-  the message \"timed out\". Each namespace in `fixtures` that had no running var (so it hung in a `:once` fixture)
-  becomes a `<testcase>` with no `classname`, because no var can be named. Does nothing when both are empty."
-  [{:keys [vars fixtures]}]
-  (when (or (seq vars) (seq fixtures))
-    (with-open [w (.createXMLStreamWriter (XMLOutputFactory/newInstance)
-                                          (io/writer (io/file output-dir "mb_hawk_timeouts.xml")
-                                                     :encoding "UTF-8"))]
-      (.writeStartDocument w)
-      (write-element!
-       w "testsuite"
-       {:name     "mb.hawk.timeouts"
-        :tests    (+ (count vars) (count fixtures))
-        :errors   (+ (count vars) (count fixtures))
-        :failures (count (filter failed-var? vars))}
-       (fn []
-         (doseq [result vars]
-           (write-timed-out-var!* w result))
-         (doseq [result fixtures]
-           (write-timed-out-fixture!* w result))))
       (.writeEndDocument w))))
 
 (defn write-ns-result-now!
